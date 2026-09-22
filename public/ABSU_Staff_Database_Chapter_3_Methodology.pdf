@@ -1,0 +1,1981 @@
+%PDF-1.3
+%ºß¬à
+3 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 4 0 R
+>>
+endobj
+4 0 obj
+<<
+/Length 5295
+>>
+stream
+0.200025 w
+0 G
+BT
+/F2 18 Tf
+20.6999999999999993 TL
+0.094 0.169 0.286 rg
+221.5 791.8899999999999864 Td
+(CHAPTER THREE) Tj
+ET
+BT
+/F2 14 Tf
+16.0999999999999979 TL
+0.118 0.227 0.541 rg
+165.8299999999999841 767.8899999999999864 Td
+(SYSTEM METHODOLOGY AND DESIGN) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0.118 0.161 0.231 rg
+40. 739.8899999999999864 Td
+(3.1 Introduction) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.278 0.333 0.412 rg
+40. 721.8899999999999864 Td
+(This chapter presents the methodology adopted in designing and developing the Abia State University \(ABSU\) Staff) Tj
+T* (Database Management Portal. It provides a detailed exposition of the software development lifecycle, system) Tj
+T* (analysis, functional and non-functional requirements, system architecture, database design, and the technical) Tj
+T* (toolchain utilized during implementation. The objective is to provide a structured, replicable technical blueprint) Tj
+T* (explaining how the web portal was conceived, architected, developed, and verified.) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0.118 0.161 0.231 rg
+40. 643.8899999999999864 Td
+(3.2 Software Development Methodology) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.278 0.333 0.412 rg
+40. 625.8899999999999864 Td
+(The development of this project followed the Agile Development Methodology \(Iterative and Prototyping Model\). Staff) Tj
+T* (records management involves diverse stakeholder roles \(Super Administrators, Administrators, and) Tj
+T* (Academic/Non-Academic Staff\). An iterative approach allowed continuous verification, requirement refinement, and) Tj
+T* (agile feature delivery.) Tj
+ET
+BT
+/F2 11 Tf
+12.6499999999999986 TL
+0.2 0.255 0.333 rg
+40. 561.8899999999999864 Td
+(3.2.1 Justification for Agile / Prototyping) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 545.8899999999999864 Td
+(• Iterative Feedback: Stakeholder requirements evolved during development—such as adding dual Super) Tj
+T* (Admin rights, live multi-format report exports \(PDF and Excel\), and client-side photograph compression.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 511.8899999999999864 Td
+(• Speed & Responsiveness: State transitions \(e.g. from 'Submitted' to 'Approved' or 'Rejected'\) were) Tj
+T* (incrementally implemented, tested, and validated without discarding previous progress.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 477.8899999999999864 Td
+(• Risk Reduction: Continuous integration and unit compilation in a modern sandbox environment) Tj
+T* (ensured that potential dependency conflicts or Firebase permission errors were caught and resolved) Tj
+T* (early.) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0.118 0.161 0.231 rg
+40. 429.8899999999999864 Td
+(3.3 System Analysis & Requirements Specification) Tj
+ET
+BT
+/F2 11 Tf
+12.6499999999999986 TL
+0.2 0.255 0.333 rg
+40. 411.8899999999999864 Td
+(3.3.1 Functional Requirements) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 395.8899999999999864 Td
+(• Authentication & Access Control: Secure email/password account creation and sign-in via Firebase) Tj
+T* (Authentication, accompanied by automated password recovery mechanisms.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 361.8899999999999864 Td
+(• Role-Based Access Control \(RBAC\): Hierarchical privileges separating Super Administrators \(sole) Tj
+T* (authority to grant or revoke administrative roles\), Administrators \(verifying submissions, manual staff) Tj
+T* (entry, CSV bulk uploads, deletions, announcements\), and Staff Users \(self-service profile entry and) Tj
+T* (updates\).) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 299.8899999999999864 Td
+(• Staff Profile Management: Capture of personal, employment, and biometric metadata: Full Name, Staff) Tj
+T* (ID, Department, Faculty, Phone, DOB, Height, Blood Group, Address, Staff Type) Tj
+T* (\(Academic/Non-Academic\), Photo, and CV.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 251.8899999999999864 Td
+(• Verification & Approval Workflow: Submissions by regular staff are placed in 'Submitted' state until an) Tj
+T* (Administrator explicitly reviews and clicks 'Accept' \(Approved\) or 'Reject'.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 217.8899999999999864 Td
+(• Querying, Search & Analytics: Real-time substring search filtering across Name, Staff ID, Department,) Tj
+T* (and Faculty, paired with graphical demographic metric charts.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 183.8899999999999864 Td
+(• Reporting & Document Export: Instant client-side generation and download of formatted Adobe PDF) Tj
+T* (directories and Microsoft Excel \(.xlsx\) workbooks.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 149.8899999999999864 Td
+(• Campus Communication: Real-time staff message board and official university bulletins dispatch with) Tj
+T* (audio support.) Tj
+ET
+BT
+/F2 11 Tf
+12.6499999999999986 TL
+0.2 0.255 0.333 rg
+40. 115.8899999999999864 Td
+(3.3.2 Non-Functional Requirements) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 99.8899999999999864 Td
+(• Performance & Responsiveness: Sub-second data filtering and instant live record updates through) Tj
+T* (Firebase WebSocket subscriptions.) Tj
+ET
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.58 0.639 0.722 rg
+168.0574999999998909 20. Td
+(ABSU Staff Database Portal — Chapter 3: Methodology | Page 1 of 3) Tj
+ET
+endstream
+endobj
+5 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 6 0 R
+>>
+endobj
+6 0 obj
+<<
+/Length 14241
+>>
+stream
+0.200025 w
+0 G
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 791.8899999999999864 Td
+(• Security & Privacy: Encrypted password storage, JSON Web Token \(JWT\) session security, and) Tj
+T* (client-side sanitization.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 757.8899999999999864 Td
+(• Usability & Mobile Adaptation: Fully responsive glassmorphism aesthetic built on Tailwind CSS,) Tj
+T* (supporting smartphones, tablets, and desktops.) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 723.8899999999999864 Td
+(• Data Integrity: Deterministic user document indexing ensuring staff updating their details update) Tj
+T* (existing records without creating duplicate entries.) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0.118 0.161 0.231 rg
+40. 689.8899999999999864 Td
+(3.4 System Architecture) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.278 0.333 0.412 rg
+40. 671.8899999999999864 Td
+(The application adopts a modern Cloud-Native, Single Page Application \(SPA\) / Backend-as-a-Service \(BaaS\)) Tj
+T* (architecture comprising two decoupled layers:) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 635.8899999999999864 Td
+(• Presentation Layer \(Frontend\): Engineered with React 18, TypeScript, and Vite. Implements reactive UI) Tj
+T* (states, dynamic routing, Lucide vector icons, and client-side processing engines \(HTML5 Canvas for) Tj
+T* (photo compression, jsPDF for PDF generation, SheetJS for Excel spreadsheets\).) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.2 0.255 0.333 rg
+50. 587.8899999999999864 Td
+(• Cloud Services Layer \(Backend\): Google Firebase Authentication manages cryptographic user tokens) Tj
+T* (and password resets. Google Cloud Firestore provides high-performance, real-time distributed NoSQL) Tj
+T* (document storage with live listeners \(onSnapshot\).) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0.118 0.161 0.231 rg
+40. 539.8899999999999864 Td
+(3.5 Database Design and Data Modeling) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.278 0.333 0.412 rg
+40. 521.8899999999999864 Td
+(The system utilizes a NoSQL schema optimized for read-heavy operations, sub-second queries, and flexible) Tj
+T* (attributes across the following core collections:) Tj
+ET
+BT
+/F2 10 Tf
+11.5 TL
+0.118 0.227 0.541 rg
+40. 485.8899999999999864 Td
+(Table 3.1: Staff Collection Schema \(/staff\)) Tj
+ET
+0. G
+0.200025 w
+0. G
+0.200025 w
+0.12 0.23 0.54 rg
+0.78 G
+0. w
+0.12 0.23 0.54 rg
+40. 477.8899999999999864 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F2 8.5 Tf
+9.7749999999999986 TL
+1. g
+43.5 467.1649999999999636 Td
+(Field) Tj
+ET
+0.12 0.23 0.54 rg
+0.78 G
+0. w
+0.12 0.23 0.54 rg
+118.8140706770973622 477.8899999999999864 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F2 8.5 Tf
+9.7749999999999986 TL
+1. g
+122.3140706770973622 467.1649999999999636 Td
+(Data Type) Tj
+ET
+0.12 0.23 0.54 rg
+0.78 G
+0. w
+0.12 0.23 0.54 rg
+226.1158061325419908 477.8899999999999864 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F2 8.5 Tf
+9.7749999999999986 TL
+1. g
+229.6158061325419908 467.1649999999999636 Td
+(Description) Tj
+ET
+0. G
+0.200025 w
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 461.1150000000000091 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 450.3899999999999864 Td
+(id) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+118.8140706770973622 461.1150000000000091 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 450.3899999999999864 Td
+(String) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+226.1158061325419908 461.1150000000000091 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 450.3899999999999864 Td
+(Unique auto-generated document identifier) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 444.3400000000000318 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 433.6150000000000091 Td
+(name) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+118.8140706770973622 444.3400000000000318 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 433.6150000000000091 Td
+(String) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+226.1158061325419908 444.3400000000000318 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 433.6150000000000091 Td
+(Full legal name of staff member) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 427.5650000000000546 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 416.8400000000000318 Td
+(employeeId) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+118.8140706770973622 427.5650000000000546 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 416.8400000000000318 Td
+(String) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+226.1158061325419908 427.5650000000000546 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 416.8400000000000318 Td
+(Official university employee/staff ID number) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 410.7900000000000773 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 400.0650000000000546 Td
+(email) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+118.8140706770973622 410.7900000000000773 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 400.0650000000000546 Td
+(String) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+226.1158061325419908 410.7900000000000773 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 400.0650000000000546 Td
+(Registered account email address) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 394.0150000000001 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 383.2900000000000773 Td
+(faculty) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+118.8140706770973622 394.0150000000001 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 383.2900000000000773 Td
+(String) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+226.1158061325419908 394.0150000000001 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 383.2900000000000773 Td
+(Academic faculty / university division) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 377.2400000000001228 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 366.5150000000001 Td
+(department) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+118.8140706770973622 377.2400000000001228 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 366.5150000000001 Td
+(String) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+226.1158061325419908 377.2400000000001228 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 366.5150000000001 Td
+(Primary department assignment) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 360.4650000000001455 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 349.7400000000001228 Td
+(phone) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+118.8140706770973622 360.4650000000001455 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 349.7400000000001228 Td
+(String) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+226.1158061325419908 360.4650000000001455 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 349.7400000000001228 Td
+(Active telephone contact number) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 343.6900000000001683 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 332.9650000000001455 Td
+(dob) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+118.8140706770973622 343.6900000000001683 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 332.9650000000001455 Td
+(String \(Date\)) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+226.1158061325419908 343.6900000000001683 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 332.9650000000001455 Td
+(Date of birth) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 326.915000000000191 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 316.1900000000001683 Td
+(height) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+118.8140706770973622 326.915000000000191 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 316.1900000000001683 Td
+(String) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+226.1158061325419908 326.915000000000191 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 316.1900000000001683 Td
+(Physical height metric \(cm\)) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 310.1400000000002137 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 299.415000000000191 Td
+(bloodGroup) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+118.8140706770973622 310.1400000000002137 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 299.415000000000191 Td
+(String) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+226.1158061325419908 310.1400000000002137 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 299.415000000000191 Td
+(ABO blood group classification \(A+, B+, O+, etc.\)) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 293.3650000000002365 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 282.6400000000002137 Td
+(address) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+118.8140706770973622 293.3650000000002365 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 282.6400000000002137 Td
+(String) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+226.1158061325419908 293.3650000000002365 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 282.6400000000002137 Td
+(Residential contact address) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 276.5900000000002592 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 265.8650000000002365 Td
+(staffType) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+118.8140706770973622 276.5900000000002592 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 265.8650000000002365 Td
+(String) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+226.1158061325419908 276.5900000000002592 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 265.8650000000002365 Td
+(Classification: 'Academic' or 'Non-Academic') Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 259.8150000000002819 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 249.0900000000002592 Td
+(photoUrl) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+118.8140706770973622 259.8150000000002819 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 249.0900000000002592 Td
+(String \(Base64\)) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+226.1158061325419908 259.8150000000002819 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 249.0900000000002592 Td
+(Compressed JPEG image rendered via HTML5 canvas) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 243.0400000000003047 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 232.3150000000002819 Td
+(cvUrl) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+118.8140706770973622 243.0400000000003047 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 232.3150000000002819 Td
+(String \(DataURI\)) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+226.1158061325419908 243.0400000000003047 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 232.3150000000002819 Td
+(Curriculum vitae document attachment) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 226.2650000000003274 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 215.5400000000003047 Td
+(role) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+118.8140706770973622 226.2650000000003274 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 215.5400000000003047 Td
+(String) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+226.1158061325419908 226.2650000000003274 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 215.5400000000003047 Td
+(Access tier: 'admin' or 'user') Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 209.4900000000003502 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 198.7650000000003274 Td
+(status) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+118.8140706770973622 209.4900000000003502 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 198.7650000000003274 Td
+(String) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+226.1158061325419908 209.4900000000003502 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 198.7650000000003274 Td
+(Workflow status: 'Submitted', 'Approved', or 'Rejected') Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 192.7150000000003729 78.8140706770973622 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+43.5 181.9900000000003502 Td
+(createdAt) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+118.8140706770973622 192.7150000000003729 107.3017354554446285 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+122.3140706770973622 181.9900000000003502 Td
+(Timestamp) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+226.1158061325419908 192.7150000000003729 329.1641938674579819 -16.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+229.6158061325419908 181.9900000000003502 Td
+(Server-generated submission timestamp) Tj
+ET
+0. G
+0.200025 w
+0.78 G
+0. w
+0. G
+0.200025 w
+0. G
+0.200025 w
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.58 0.639 0.722 rg
+168.0574999999998909 20. Td
+(ABSU Staff Database Portal — Chapter 3: Methodology | Page 2 of 3) Tj
+ET
+endstream
+endobj
+7 0 obj
+<</Type /Page
+/Parent 1 0 R
+/Resources 2 0 R
+/MediaBox [0 0 595.2799999999999727 841.8899999999999864]
+/Contents 8 0 R
+>>
+endobj
+8 0 obj
+<<
+/Length 13787
+>>
+stream
+0.200025 w
+0. G
+BT
+/F2 10 Tf
+11.5 TL
+0.118 0.227 0.541 rg
+40. 791.8899999999999864 Td
+(Table 3.2: Auxiliary System Collections) Tj
+ET
+0. G
+0.200025 w
+0. G
+0.200025 w
+0.2 0.25 0.33 rg
+0.78 G
+0. w
+0.2 0.25 0.33 rg
+40. 783.8899999999999864 53.922410488187964 -17.7749999999999986 re
+f
+BT
+/F2 8.5 Tf
+9.7749999999999986 TL
+1. g
+44. 772.6649999999999636 Td
+(Collection) Tj
+ET
+0.2 0.25 0.33 rg
+0.78 G
+0. w
+0.2 0.25 0.33 rg
+93.922410488187964 783.8899999999999864 196.5629874667435786 -17.7749999999999986 re
+f
+BT
+/F2 8.5 Tf
+9.7749999999999986 TL
+1. g
+97.922410488187964 772.6649999999999636 Td
+(Key Attributes) Tj
+ET
+0.2 0.25 0.33 rg
+0.78 G
+0. w
+0.2 0.25 0.33 rg
+290.4853979549315568 783.8899999999999864 264.7946020450684728 -17.7749999999999986 re
+f
+BT
+/F2 8.5 Tf
+9.7749999999999986 TL
+1. g
+294.4853979549315568 772.6649999999999636 Td
+(Functional Purpose) Tj
+ET
+0. G
+0.200025 w
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 766.1150000000000091 53.922410488187964 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+44. 754.8899999999999864 Td
+(users) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+93.922410488187964 766.1150000000000091 196.5629874667435786 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+97.922410488187964 754.8899999999999864 Td
+(uid, name, email, phone, role, createdAt) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+290.4853979549315568 766.1150000000000091 264.7946020450684728 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+294.4853979549315568 754.8899999999999864 Td
+(Stores operator credentials & role configurations) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 748.3399999999999181 53.922410488187964 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+44. 737.1150000000000091 Td
+(news) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+93.922410488187964 748.3399999999999181 196.5629874667435786 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+97.922410488187964 737.1150000000000091 Td
+(id, title, content, createdAt) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+290.4853979549315568 748.3399999999999181 264.7946020450684728 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+294.4853979549315568 737.1150000000000091 Td
+(Stores official dispatches, bulletins, and news announcements) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 730.5649999999999409 53.922410488187964 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+44. 719.3399999999999181 Td
+(messages) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+93.922410488187964 730.5649999999999409 196.5629874667435786 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+97.922410488187964 719.3399999999999181 Td
+(id, text, senderName, senderEmail, createdAt) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+290.4853979549315568 730.5649999999999409 264.7946020450684728 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+294.4853979549315568 719.3399999999999181 Td
+(Stores intra-institutional collaborative chat correspondence) Tj
+ET
+0. G
+0.200025 w
+0.78 G
+0. w
+0. G
+0.200025 w
+0. G
+0.200025 w
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0.118 0.161 0.231 rg
+40. 694.7899999999999636 Td
+(3.6 System Workflow & Process Specifications) Tj
+ET
+BT
+/F2 11 Tf
+12.6499999999999986 TL
+0.2 0.255 0.333 rg
+40. 676.7899999999999636 Td
+(3.6.1 Staff Record Verification Lifecycle) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.278 0.333 0.412 rg
+40. 660.7899999999999636 Td
+(When a staff member registers or updates their credentials, the record is flagged with a 'Submitted' status.) Tj
+T* (Administrators review the entry within their dashboard, inspecting photographic and departmental data. The) Tj
+T* (administrator can click 'Accept' \(setting status to 'Approved'\) or 'Reject' \(setting status to 'Rejected'\). Real-time) Tj
+T* (Firestore snapshot listeners immediately reflect this state change on the user's interface.) Tj
+ET
+BT
+/F2 11 Tf
+12.6499999999999986 TL
+0.2 0.255 0.333 rg
+40. 596.7899999999999636 Td
+(3.6.2 Role Escalation & Super Admin Governance) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.278 0.333 0.412 rg
+40. 580.7899999999999636 Td
+(To prevent unauthorized privilege elevation, role modifications are guarded by a deterministic identity verification) Tj
+T* (protocol. The system evaluates whether the authenticated user's email matches designated Super Administrator) Tj
+T* (emails \(ogungbadekehinde19@gmail.com or brossj50@gmail.com\). Only upon verified identity match are 'Make) Tj
+T* (Admin' or 'Remove Admin' controls enabled.) Tj
+ET
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0.118 0.161 0.231 rg
+40. 516.7899999999999636 Td
+(3.7 Implementation Toolchain and Technologies) Tj
+ET
+0. G
+0.200025 w
+0. G
+0.200025 w
+0.12 0.23 0.54 rg
+0.78 G
+0. w
+0.12 0.23 0.54 rg
+40. 498.7899999999999636 115.8592529087568721 -17.7749999999999986 re
+f
+BT
+/F2 8.5 Tf
+9.7749999999999986 TL
+1. g
+44. 487.5649999999999409 Td
+(Technology / Library) Tj
+ET
+0.12 0.23 0.54 rg
+0.78 G
+0. w
+0.12 0.23 0.54 rg
+155.8592529087568721 498.7899999999999636 95.6258175137783013 -17.7749999999999986 re
+f
+BT
+/F2 8.5 Tf
+9.7749999999999986 TL
+1. g
+159.8592529087568721 487.5649999999999409 Td
+(Category) Tj
+ET
+0.12 0.23 0.54 rg
+0.78 G
+0. w
+0.12 0.23 0.54 rg
+251.4850704225351592 498.7899999999999636 303.7949295774648135 -17.7749999999999986 re
+f
+BT
+/F2 8.5 Tf
+9.7749999999999986 TL
+1. g
+255.4850704225351592 487.5649999999999409 Td
+(Role in Project Implementation) Tj
+ET
+0. G
+0.200025 w
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 481.0149999999999864 115.8592529087568721 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+44. 469.7899999999999636 Td
+(React 18 & TypeScript) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+155.8592529087568721 481.0149999999999864 95.6258175137783013 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+159.8592529087568721 469.7899999999999636 Td
+(Frontend Framework) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+251.4850704225351592 481.0149999999999864 303.7949295774648135 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+255.4850704225351592 469.7899999999999636 Td
+(Type-safe, component-driven reactive single-page architecture) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 463.2400000000000091 115.8592529087568721 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+44. 452.0149999999999864 Td
+(Vite) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+155.8592529087568721 463.2400000000000091 95.6258175137783013 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+159.8592529087568721 452.0149999999999864 Td
+(Build Tool) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+251.4850704225351592 463.2400000000000091 303.7949295774648135 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+255.4850704225351592 452.0149999999999864 Td
+(Rapid build bundling, development environment, and asset packaging) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 445.4650000000000318 115.8592529087568721 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+44. 434.2400000000000091 Td
+(Tailwind CSS) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+155.8592529087568721 445.4650000000000318 95.6258175137783013 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+159.8592529087568721 434.2400000000000091 Td
+(Styling Engine) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+251.4850704225351592 445.4650000000000318 303.7949295774648135 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+255.4850704225351592 434.2400000000000091 Td
+(Glassmorphic responsive interface layout and design system) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 427.6900000000000546 115.8592529087568721 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+44. 416.4650000000000318 Td
+(Motion \(motion/react\)) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+155.8592529087568721 427.6900000000000546 95.6258175137783013 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+159.8592529087568721 416.4650000000000318 Td
+(Animation) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+251.4850704225351592 427.6900000000000546 303.7949295774648135 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+255.4850704225351592 416.4650000000000318 Td
+(Fluid UI transitions, modal displays, and interactive animations) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 409.9150000000000773 115.8592529087568721 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+44. 398.6900000000000546 Td
+(Lucide React) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+155.8592529087568721 409.9150000000000773 95.6258175137783013 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+159.8592529087568721 398.6900000000000546 Td
+(Iconography) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+251.4850704225351592 409.9150000000000773 303.7949295774648135 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+255.4850704225351592 398.6900000000000546 Td
+(Scalable vector interface icons) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 392.1400000000001 115.8592529087568721 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+44. 380.9150000000000773 Td
+(Recharts) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+155.8592529087568721 392.1400000000001 95.6258175137783013 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+159.8592529087568721 380.9150000000000773 Td
+(Data Visualization) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+251.4850704225351592 392.1400000000001 303.7949295774648135 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+255.4850704225351592 380.9150000000000773 Td
+(Demographic, status, and departmental analytical charts) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 374.3650000000001228 115.8592529087568721 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+44. 363.1400000000001 Td
+(jsPDF & jsPDF-AutoTable) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+155.8592529087568721 374.3650000000001228 95.6258175137783013 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+159.8592529087568721 363.1400000000001 Td
+(Document Export) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+251.4850704225351592 374.3650000000001228 303.7949295774648135 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+255.4850704225351592 363.1400000000001 Td
+(Client-side tabular PDF directory compilation and download) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 356.5900000000001455 115.8592529087568721 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+44. 345.3650000000001228 Td
+(SheetJS \(xlsx\)) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+155.8592529087568721 356.5900000000001455 95.6258175137783013 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+159.8592529087568721 345.3650000000001228 Td
+(Spreadsheet Engine) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+251.4850704225351592 356.5900000000001455 303.7949295774648135 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+255.4850704225351592 345.3650000000001228 Td
+(Client-side generation and formatting of Excel \(.xlsx\) workbooks) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 338.8150000000001683 115.8592529087568721 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+44. 327.5900000000001455 Td
+(Firebase Authentication) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+155.8592529087568721 338.8150000000001683 95.6258175137783013 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+159.8592529087568721 327.5900000000001455 Td
+(Identity & Security) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+251.4850704225351592 338.8150000000001683 303.7949295774648135 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+255.4850704225351592 327.5900000000001455 Td
+(Encrypted authentication tokens, session state, and password recovery) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+40. 321.040000000000191 115.8592529087568721 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+44. 309.8150000000001683 Td
+(Google Cloud Firestore) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+155.8592529087568721 321.040000000000191 95.6258175137783013 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+159.8592529087568721 309.8150000000001683 Td
+(Database \(BaaS\)) Tj
+ET
+1. g
+0.78 G
+0. w
+1. g
+251.4850704225351592 321.040000000000191 303.7949295774648135 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+255.4850704225351592 309.8150000000001683 Td
+(Distributed NoSQL cloud database providing live data sync) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+40. 303.2650000000002137 115.8592529087568721 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+44. 292.040000000000191 Td
+(HTML5 Canvas API) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+155.8592529087568721 303.2650000000002137 95.6258175137783013 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+159.8592529087568721 292.040000000000191 Td
+(Client Processing) Tj
+ET
+0.96 g
+0.78 G
+0. w
+0.96 g
+251.4850704225351592 303.2650000000002137 303.7949295774648135 -17.7749999999999986 re
+f
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.314 g
+255.4850704225351592 292.040000000000191 Td
+(In-browser downscaling and compression of staff photographs) Tj
+ET
+0. G
+0.200025 w
+0.78 G
+0. w
+0. G
+0.200025 w
+0. G
+0.200025 w
+BT
+/F2 13 Tf
+14.9499999999999993 TL
+0.118 0.161 0.231 rg
+40. 267.4900000000002365 Td
+(3.8 Chapter Summary) Tj
+ET
+BT
+/F1 10 Tf
+11.5 TL
+0.278 0.333 0.412 rg
+40. 249.4900000000002365 Td
+(This chapter presented the comprehensive methodology, architectural specifications, and database schema) Tj
+T* (governing the ABSU Staff Database Management Portal. By integrating an Agile prototyping methodology with) Tj
+T* (modern web technologies \(React, TypeScript, Tailwind CSS\) and Google Cloud Firestore services, the system) Tj
+T* (delivers real-time synchronization, multi-tiered governance, client-side report exports, and efficient client-side asset) Tj
+T* (optimization.) Tj
+ET
+BT
+/F1 8.5 Tf
+9.7749999999999986 TL
+0.58 0.639 0.722 rg
+168.0574999999998909 20. Td
+(ABSU Staff Database Portal — Chapter 3: Methodology | Page 3 of 3) Tj
+ET
+endstream
+endobj
+1 0 obj
+<</Type /Pages
+/Kids [3 0 R 5 0 R 7 0 R ]
+/Count 3
+>>
+endobj
+9 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+10 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+11 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-Oblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+12 0 obj
+<<
+/Type /Font
+/BaseFont /Helvetica-BoldOblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+13 0 obj
+<<
+/Type /Font
+/BaseFont /Courier
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+14 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+15 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-Oblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+16 0 obj
+<<
+/Type /Font
+/BaseFont /Courier-BoldOblique
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+17 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Roman
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+18 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Bold
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+19 0 obj
+<<
+/Type /Font
+/BaseFont /Times-Italic
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+20 0 obj
+<<
+/Type /Font
+/BaseFont /Times-BoldItalic
+/Subtype /Type1
+/Encoding /WinAnsiEncoding
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+21 0 obj
+<<
+/Type /Font
+/BaseFont /ZapfDingbats
+/Subtype /Type1
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+22 0 obj
+<<
+/Type /Font
+/BaseFont /Symbol
+/Subtype /Type1
+/FirstChar 32
+/LastChar 255
+>>
+endobj
+2 0 obj
+<<
+/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]
+/Font <<
+/F1 9 0 R
+/F2 10 0 R
+/F3 11 0 R
+/F4 12 0 R
+/F5 13 0 R
+/F6 14 0 R
+/F7 15 0 R
+/F8 16 0 R
+/F9 17 0 R
+/F10 18 0 R
+/F11 19 0 R
+/F12 20 0 R
+/F13 21 0 R
+/F14 22 0 R
+>>
+/XObject <<
+>>
+>>
+endobj
+23 0 obj
+<<
+/Producer (jsPDF 4.2.1)
+/CreationDate (D:20260919202149-00'00')
+>>
+endobj
+24 0 obj
+<<
+/Type /Catalog
+/Pages 1 0 R
+/OpenAction [3 0 R /FitH null]
+/PageLayout /OneColumn
+>>
+endobj
+xref
+0 25
+0000000000 65535 f 
+0000033907 00000 n 
+0000035740 00000 n 
+0000000015 00000 n 
+0000000152 00000 n 
+0000005499 00000 n 
+0000005636 00000 n 
+0000019930 00000 n 
+0000020067 00000 n 
+0000033976 00000 n 
+0000034101 00000 n 
+0000034232 00000 n 
+0000034366 00000 n 
+0000034504 00000 n 
+0000034628 00000 n 
+0000034757 00000 n 
+0000034889 00000 n 
+0000035025 00000 n 
+0000035153 00000 n 
+0000035280 00000 n 
+0000035409 00000 n 
+0000035542 00000 n 
+0000035644 00000 n 
+0000035992 00000 n 
+0000036078 00000 n 
+trailer
+<<
+/Size 25
+/Root 24 0 R
+/Info 23 0 R
+/ID [ <3FD10BE0C7E7A6500BE71D7A926FD91C> <3FD10BE0C7E7A6500BE71D7A926FD91C> ]
+>>
+startxref
+36182
+%%EOF

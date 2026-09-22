@@ -1,0 +1,6 @@
+{
+  "name": "ABSU Staff Database",
+  "description": "Abia State University Staff Database Portal for staff directory management, verification, reporting, and secure administration",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
