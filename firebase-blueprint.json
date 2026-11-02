@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "Staff": {
+      "title": "Staff",
+      "description": "University staff member profile and employment record",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 150 },
+        "email": { "type": "string", "maxLength": 150 },
+        "faculty": { "type": "string", "maxLength": 150 },
+        "department": { "type": "string", "maxLength": 150 },
+        "rank": { "type": "string", "maxLength": 150 },
+        "qualification": { "type": "string", "maxLength": 200 },
+        "dateEmployed": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected", "Active", "Inactive", "On Leave", "Retired"] },
+        "verificationStatus": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
+        "employmentStatus": { "type": "string", "enum": ["Active", "Inactive", "On Leave", "Retired"] },
+        "rejectionReason": { "type": "string", "maxLength": 500 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "photoUrl": { "type": "string" },
+        "documentUrl": { "type": "string" },
+        "documentName": { "type": "string", "maxLength": 200 },
+        "documentSize": { "type": "string", "maxLength": 50 },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "userId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "approvedAt": { "type": "string" },
+        "rejectedAt": { "type": "string" },
+        "reviewedBy": { "type": "string", "maxLength": 150 }
+      },
+      "required": ["name", "email", "faculty", "department", "rank"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Internal university portal chat message",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string", "maxLength": 1000 },
+        "senderEmail": { "type": "string", "maxLength": 150 },
+        "senderName": { "type": "string", "maxLength": 150 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["text", "senderEmail", "senderName"]
+    },
+    "News": {
+      "title": "News",
+      "description": "University news announcement",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 255 },
+        "content": { "type": "string", "maxLength": 5000 },
+        "author": { "type": "string", "maxLength": 150 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["title", "content", "author"]
+    },
+    "User": {
+      "title": "User",
+      "description": "User profile metadata",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "email": { "type": "string", "maxLength": 150 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["email"]
+    }
+  },
+  "firestore": {
+    "/staff/{document}": {
+      "schema": "Staff",
+      "description": "Collection of staff profiles and registration records"
+    },
+    "/messages/{document}": {
+      "schema": "Message",
+      "description": "Portal messaging communication"
+    },
+    "/news/{document}": {
+      "schema": "News",
+      "description": "University announcements and feeds"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Registered user accounts"
+    }
+  }
+}
