@@ -5,7 +5,7 @@ import {
   CheckCircle, Clock, Check, ChevronRight, LogIn, UserPlus, Upload, Volume2, VolumeX, 
   Image as ImageIcon, X, User as UserIcon, Edit3, ShieldAlert, FileText, CheckCircle2, 
   XCircle, Filter, Trash2, ExternalLink, AlertTriangle, Eye, RefreshCw, FileSpreadsheet, 
-  Sparkles, CheckSquare, Square, Loader2, Menu, ShieldCheck, Key, GraduationCap, ChevronDown
+  Sparkles, CheckSquare, Square, Loader2 
 } from 'lucide-react';
 import { auth, db } from './firebase';
 import { 
@@ -29,47 +29,15 @@ import {
   normalizeFaculty, 
   inferFacultyFromDepartment 
 } from './data/faculties';
-import { FacultiesExplorer } from './components/FacultiesExplorer';
-
-// History API helper to parse initial URL parameters
-const getInitialUrlState = () => {
-  if (typeof window === 'undefined') {
-    return {
-      view: 'faculties' as const,
-      faculty: 'all',
-      dept: 'all',
-      status: 'all' as const,
-      search: '',
-      explorerFaculty: FACULTIES_DATA[0].faculty,
-      explorerDept: FACULTIES_DATA[0].departments[0] || ''
-    };
-  }
-  const params = new URLSearchParams(window.location.search);
-  const viewParam = params.get('view');
-  const validViews = ['faculties', 'dashboard', 'directory', 'entry', 'news', 'messages', 'settings'] as const;
-  const view = (validViews.includes(viewParam as any) ? viewParam : 'faculties') as typeof validViews[number];
-  
-  const faculty = params.get('faculty') || 'all';
-  const dept = params.get('dept') || 'all';
-  const statusParam = params.get('status');
-  const status = (['all', 'Pending', 'Approved', 'Rejected'].includes(statusParam || '') ? statusParam : 'all') as any;
-  const search = params.get('search') || '';
-
-  const explorerFaculty = faculty !== 'all' ? faculty : FACULTIES_DATA[0].faculty;
-  const explorerDept = dept !== 'all' ? dept : (getDepartmentsForFaculty(explorerFaculty)[0] || '');
-
-  return { view, faculty, dept, status, search, explorerFaculty, explorerDept };
-};
 
 export default function App() {
-  const initialUrl = getInitialUrlState();
   const [user, setUser] = useState<User | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   const [loading, setLoading] = useState(true);
   const [staffList, setStaffList] = useState<any[]>([]);
   const [isAdminRole, setIsAdminRole] = useState(false);
   const [isEditingMyDetails, setIsEditingMyDetails] = useState(false);
-  const [activeView, setActiveView] = useState<'dashboard' | 'directory' | 'entry' | 'faculties' | 'news' | 'messages' | 'settings'>(initialUrl.view);
+  const [activeView, setActiveView] = useState('entry');
   
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -81,231 +49,19 @@ export default function App() {
   
   const [settingsSaved, setSettingsSaved] = useState(false);
   
-  // Auth states & friendly error handling
+  // Auth states
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
   const [authEmail, setAuthEmail] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authName, setAuthName] = useState('');
   const [authPhone, setAuthPhone] = useState('');
   const [authError, setAuthError] = useState('');
-  const [authErrorInfo, setAuthErrorInfo] = useState<{ message: string; code?: string; canQuickSignUp?: boolean } | null>(null);
-  const [searchQuery, setSearchQuery] = useState(initialUrl.search);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Filter for directory and dashboard: 'all' | 'Pending' | 'Approved' | 'Rejected'
-  const [statusFilter, setStatusFilter] = useState<'all' | 'Pending' | 'Approved' | 'Rejected'>(initialUrl.status);
-  const [facultyFilter, setFacultyFilter] = useState<string>(initialUrl.faculty);
-  const [departmentFilter, setDepartmentFilter] = useState<string>(initialUrl.dept);
-  const [explorerFaculty, setExplorerFaculty] = useState<string>(initialUrl.explorerFaculty);
-  const [explorerDept, setExplorerDept] = useState<string>(initialUrl.explorerDept);
-
-  // History API: Update browser URL without reloading page
-  const updateBrowserHistory = (
-    view: 'dashboard' | 'directory' | 'entry' | 'faculties' | 'news' | 'messages' | 'settings',
-    opts?: {
-      faculty?: string;
-      dept?: string;
-      status?: 'all' | 'Pending' | 'Approved' | 'Rejected';
-      search?: string;
-      replace?: boolean;
-    }
-  ) => {
-    if (typeof window === 'undefined') return;
-
-    const url = new URL(window.location.href);
-    url.searchParams.set('view', view);
-
-    const f = opts?.faculty !== undefined ? opts.faculty : facultyFilter;
-    if (f && f !== 'all') {
-      url.searchParams.set('faculty', f);
-    } else {
-      url.searchParams.delete('faculty');
-    }
-
-    const d = opts?.dept !== undefined ? opts.dept : departmentFilter;
-    if (d && d !== 'all') {
-      url.searchParams.set('dept', d);
-    } else {
-      url.searchParams.delete('dept');
-    }
-
-    const s = opts?.status !== undefined ? opts.status : statusFilter;
-    if (s && s !== 'all') {
-      url.searchParams.set('status', s);
-    } else {
-      url.searchParams.delete('status');
-    }
-
-    const q = opts?.search !== undefined ? opts.search : searchQuery;
-    if (q && q.trim()) {
-      url.searchParams.set('search', q.trim());
-    } else {
-      url.searchParams.delete('search');
-    }
-
-    const relativeUrl = url.pathname + url.search + url.hash;
-    const stateData = {
-      view,
-      faculty: f,
-      dept: d,
-      status: s,
-      search: q
-    };
-
-    try {
-      if (opts?.replace) {
-        window.history.replaceState(stateData, '', relativeUrl);
-      } else if (window.location.search !== url.search) {
-        window.history.pushState(stateData, '', relativeUrl);
-      }
-    } catch (e) {
-      console.warn("History API update skipped:", e);
-    }
-  };
-
-  // Central navigation dispatcher that coordinates React state + History API
-  const navigateTo = (
-    newView: 'dashboard' | 'directory' | 'entry' | 'faculties' | 'news' | 'messages' | 'settings',
-    opts?: {
-      faculty?: string;
-      department?: string;
-      status?: 'all' | 'Pending' | 'Approved' | 'Rejected';
-      search?: string;
-      replace?: boolean;
-    }
-  ) => {
-    setActiveView(newView);
-    if (opts?.faculty !== undefined) {
-      setFacultyFilter(opts.faculty);
-      if (opts.faculty !== 'all') setExplorerFaculty(opts.faculty);
-    }
-    if (opts?.department !== undefined) {
-      setDepartmentFilter(opts.department);
-      if (opts.department !== 'all') setExplorerDept(opts.department);
-    }
-    if (opts?.status !== undefined) {
-      setStatusFilter(opts.status);
-    }
-    if (opts?.search !== undefined) {
-      setSearchQuery(opts.search);
-    }
-
-    updateBrowserHistory(newView, {
-      faculty: opts?.faculty ?? (newView === 'faculties' ? explorerFaculty : facultyFilter),
-      dept: opts?.department ?? (newView === 'faculties' ? explorerDept : departmentFilter),
-      status: opts?.status ?? statusFilter,
-      search: opts?.search ?? searchQuery,
-      replace: opts?.replace
-    });
-  };
-
-  // History API: Listen to popstate (Browser Back and Forward buttons)
-  useEffect(() => {
-    const handlePopState = () => {
-      const params = new URLSearchParams(window.location.search);
-      const viewParam = params.get('view');
-      const validViews = ['faculties', 'dashboard', 'directory', 'entry', 'news', 'messages', 'settings'] as const;
-      const nextView = (validViews.includes(viewParam as any) ? viewParam : 'faculties') as typeof validViews[number];
-      
-      const nextFaculty = params.get('faculty') || 'all';
-      const nextDept = params.get('dept') || 'all';
-      const nextStatus = params.get('status') as any;
-      const nextSearch = params.get('search') || '';
-
-      setActiveView(nextView);
-      setFacultyFilter(nextFaculty);
-      setDepartmentFilter(nextDept);
-      if (nextFaculty !== 'all') setExplorerFaculty(nextFaculty);
-      if (nextDept !== 'all') setExplorerDept(nextDept);
-      
-      if (nextStatus && ['all', 'Pending', 'Approved', 'Rejected'].includes(nextStatus)) {
-        setStatusFilter(nextStatus);
-      } else {
-        setStatusFilter('all');
-      }
-      setSearchQuery(nextSearch);
-      setMobileNavOpen(false);
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  // Parser for Firebase Auth errors to transform codes into user-friendly guidance
-  const parseAuthError = (error: any): { message: string; code?: string; canQuickSignUp?: boolean } => {
-    const code = error?.code || '';
-    const rawMsg = error?.message || '';
-
-    if (code === 'auth/invalid-credential' || rawMsg.includes('auth/invalid-credential')) {
-      return {
-        code: 'auth/invalid-credential',
-        message: 'Invalid email or password. If you have not created an account yet, click "Create Account" below, or use Google Sign-In or Admin Passcode.',
-        canQuickSignUp: true
-      };
-    }
-    if (code === 'auth/user-not-found' || rawMsg.includes('auth/user-not-found')) {
-      return {
-        code: 'auth/user-not-found',
-        message: 'No account registered with this email address. Please sign up to create your profile.',
-        canQuickSignUp: true
-      };
-    }
-    if (code === 'auth/wrong-password' || rawMsg.includes('auth/wrong-password')) {
-      return {
-        code: 'auth/wrong-password',
-        message: 'Incorrect password entered. Please check your password or click "Forgot Password?" below.',
-        canQuickSignUp: false
-      };
-    }
-    if (code === 'auth/email-already-in-use' || rawMsg.includes('auth/email-already-in-use')) {
-      return {
-        code: 'auth/email-already-in-use',
-        message: 'This email is already registered in the system. Please click "Sign In" to log in.',
-        canQuickSignUp: false
-      };
-    }
-    if (code === 'auth/invalid-email' || rawMsg.includes('auth/invalid-email')) {
-      return {
-        code: 'auth/invalid-email',
-        message: 'Please enter a valid email address (e.g. name@absu.edu).',
-        canQuickSignUp: false
-      };
-    }
-    if (code === 'auth/weak-password' || rawMsg.includes('auth/weak-password')) {
-      return {
-        code: 'auth/weak-password',
-        message: 'Password must be at least 6 characters long.',
-        canQuickSignUp: false
-      };
-    }
-    if (code === 'auth/popup-closed-by-user' || rawMsg.includes('popup-closed-by-user')) {
-      return {
-        code: 'auth/popup-closed-by-user',
-        message: 'Google Sign-In popup was closed before completing.',
-        canQuickSignUp: false
-      };
-    }
-    if (code === 'auth/network-request-failed' || rawMsg.includes('network-request-failed')) {
-      return {
-        code: 'auth/network-request-failed',
-        message: 'Network connection issue. Please check your internet connection.',
-        canQuickSignUp: false
-      };
-    }
-    if (code === 'auth/too-many-requests' || rawMsg.includes('too-many-requests')) {
-      return {
-        code: 'auth/too-many-requests',
-        message: 'Too many attempts. Access is temporarily restricted. Please try again later or reset your password.',
-        canQuickSignUp: false
-      };
-    }
-
-    const clean = rawMsg.replace(/^Firebase:\s*Error\s*\((.*?)\)\.?/i, '$1').replace(/\./g, '').trim();
-    return {
-      code,
-      message: clean || 'Authentication could not be completed. Please check your credentials.',
-      canQuickSignUp: authMode === 'signin'
-    };
-  };
+  const [statusFilter, setStatusFilter] = useState<'all' | 'Pending' | 'Approved' | 'Rejected'>('all');
+  const [facultyFilter, setFacultyFilter] = useState<string>('all');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
   
   // Registration / Entry form states
   const [entryName, setEntryName] = useState('');
@@ -353,65 +109,8 @@ export default function App() {
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Admin passcode unlock state (saved in localStorage so admin access persists across page refreshes)
-  const [adminKeyUnlocked, setAdminKeyUnlocked] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('absu_admin_unlocked') === 'true';
-    } catch {
-      return false;
-    }
-  });
-  const [showAdminPinModal, setShowAdminPinModal] = useState(false);
-  const [adminPinInput, setAdminPinInput] = useState('');
-  const [adminPinError, setAdminPinError] = useState('');
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
-
-  const isEmailAdmin = !!(
-    user?.email?.toLowerCase() === 'brossj50@gmail.com' || 
-    user?.email?.toLowerCase() === 'ogungbadekehinde19@gmail.com' ||
-    user?.email?.toLowerCase().includes('admin')
-  );
-  const isSuperAdmin = isEmailAdmin || adminKeyUnlocked;
+  const isSuperAdmin = user?.email?.toLowerCase() === 'brossj50@gmail.com' || user?.email?.toLowerCase() === 'ogungbadekehinde19@gmail.com';
   const isAdmin = isSuperAdmin || isAdminRole;
-
-  const handleUnlockAdmin = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const pin = adminPinInput.trim().toUpperCase();
-    if (pin === 'ABSU2025' || pin === 'ADMIN123' || pin === 'ABSUADMIN' || pin === '2025' || pin === 'ADMIN') {
-      setAdminKeyUnlocked(true);
-      try {
-        localStorage.setItem('absu_admin_unlocked', 'true');
-      } catch (err) {}
-      setShowAdminPinModal(false);
-      setAdminPinInput('');
-      setAdminPinError('');
-      showToast("Administrator privileges unlocked successfully!", "success");
-      navigateTo('dashboard');
-    } else {
-      setAdminPinError('Invalid Admin Passcode. Use ABSU2025');
-    }
-  };
-
-  const handleRevokeAdminUnlock = () => {
-    setAdminKeyUnlocked(false);
-    try {
-      localStorage.removeItem('absu_admin_unlocked');
-    } catch (err) {}
-    showToast("Switched back to Lecturer/Guest View.", "info");
-    navigateTo('faculties');
-  };
-
-  const handleSelectFacultyDeptForRegistration = (faculty: string, department: string) => {
-    setEntryFaculty(faculty);
-    setEntryDept(department);
-    setIsEditingMyDetails(true);
-    navigateTo('entry', { faculty, department });
-    showToast(`Selected: ${department} under ${faculty}`, "info");
-  };
-
-  const handleFilterDirectoryFromExplorer = (faculty: string, department: string) => {
-    navigateTo('directory', { faculty, department });
-  };
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -425,28 +124,16 @@ export default function App() {
       setUser(currentUser);
       setLoading(false);
       if (currentUser) {
-        const isSuper = currentUser.email?.toLowerCase() === 'brossj50@gmail.com' || 
-                        currentUser.email?.toLowerCase() === 'ogungbadekehinde19@gmail.com' ||
-                        currentUser.email?.toLowerCase().includes('admin');
-        const params = new URLSearchParams(window.location.search);
-        const urlView = params.get('view');
-        if (isSuper || adminKeyUnlocked) {
-          if (urlView && ['dashboard', 'directory', 'entry', 'faculties', 'news', 'messages', 'settings'].includes(urlView)) {
-            navigateTo(urlView as any, { replace: true });
-          } else {
-            navigateTo('dashboard', { replace: true });
-          }
+        const isSuper = currentUser.email?.toLowerCase() === 'brossj50@gmail.com' || currentUser.email?.toLowerCase() === 'ogungbadekehinde19@gmail.com';
+        if (isSuper) {
+          setActiveView('dashboard');
         } else {
-          if (urlView && ['faculties', 'entry', 'news', 'messages', 'settings'].includes(urlView)) {
-            navigateTo(urlView as any, { replace: true });
-          } else {
-            navigateTo('faculties', { replace: true });
-          }
+          setActiveView('entry');
         }
       }
     });
     return () => unsubscribe();
-  }, [adminKeyUnlocked]);
+  }, []);
 
   // Staff normalization helper: ensures 'Pending' | 'Approved' | 'Rejected'
   const getNormalizedStatus = (staff: any): 'Pending' | 'Approved' | 'Rejected' => {
@@ -556,7 +243,7 @@ export default function App() {
   // Route security: redirect non-admin away from admin-only views
   useEffect(() => {
     if (!isAdmin && (activeView === 'dashboard' || activeView === 'directory')) {
-      navigateTo('faculties', { replace: true });
+      setActiveView('entry');
     }
   }, [isAdmin, activeView]);
 
@@ -576,59 +263,41 @@ export default function App() {
   const handlePasswordReset = async () => {
     if (!authEmail.trim()) {
       setAuthError('Please enter your email to reset password.');
-      setAuthErrorInfo({
-        code: 'auth/missing-email',
-        message: 'Please enter your email in the field above, then click "Forgot Password?".',
-        canQuickSignUp: false
-      });
       return;
     }
     try {
-      await sendPasswordResetEmail(auth, authEmail.trim());
+      await sendPasswordResetEmail(auth, authEmail);
       showToast('Password reset email sent! Check your inbox.', 'info');
-      setAuthErrorInfo(null);
-      setAuthError('');
     } catch(err: any) {
-      const parsed = parseAuthError(err);
-      setAuthError(parsed.message);
-      setAuthErrorInfo(parsed);
+      setAuthError(err.message || 'Failed to send reset email.');
     }
   };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
-    setAuthErrorInfo(null);
     try {
       if (authMode === 'signup') {
-        const userCredential = await createUserWithEmailAndPassword(auth, authEmail.trim(), authPassword);
-        if (authName.trim()) {
-          await updateProfile(userCredential.user, { displayName: authName.trim() });
-        }
+        const userCredential = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+        await updateProfile(userCredential.user, { displayName: authName });
         
         await setDoc(doc(db, 'users', userCredential.user.uid), {
-          name: authName.trim(),
-          phone: authPhone.trim(),
-          email: authEmail.trim(),
+          name: authName,
+          phone: authPhone,
+          email: authEmail,
           createdAt: serverTimestamp()
         });
-        showToast("Account created successfully! Welcome to ABSU Staff Portal.", "success");
       } else {
-        await signInWithEmailAndPassword(auth, authEmail.trim(), authPassword);
-        showToast("Signed in successfully!", "success");
+        await signInWithEmailAndPassword(auth, authEmail, authPassword);
       }
     } catch (error: any) {
-      console.error("Auth failed:", error);
-      const parsed = parseAuthError(error);
-      setAuthError(parsed.message);
-      setAuthErrorInfo(parsed);
+      console.error("Auth failed", error);
+      setAuthError(error.message || 'Authentication failed');
     }
   };
 
   const handleGoogleAuth = async () => {
     try {
-      setAuthError('');
-      setAuthErrorInfo(null);
       const provider = new GoogleAuthProvider();
       const userCredential = await signInWithPopup(auth, provider);
       await setDoc(doc(db, 'users', userCredential.user.uid), {
@@ -636,12 +305,9 @@ export default function App() {
         email: userCredential.user.email,
         createdAt: serverTimestamp()
       }, { merge: true });
-      showToast("Signed in with Google successfully!", "success");
     } catch (error: any) {
-      console.error("Google Auth failed:", error);
-      const parsed = parseAuthError(error);
-      setAuthError(parsed.message);
-      setAuthErrorInfo(parsed);
+      console.error("Google Auth failed", error);
+      setAuthError(error.message || 'Google Authentication failed');
     }
   };
 
@@ -1454,166 +1120,79 @@ export default function App() {
   // Authentication Screen
   if (!user && !isGuest) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-artistic-mesh p-4 relative">
-        {/* Toast Alert Notification on Auth Screen */}
-        <AnimatePresence>
-          {toast && (
-            <motion.div
-              initial={{ opacity: 0, y: -20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.95 }}
-              className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-2xl shadow-2xl border flex items-center gap-3 max-w-md ${
-                toast.type === 'success' ? 'bg-emerald-600 text-white border-emerald-400' :
-                toast.type === 'error' ? 'bg-rose-600 text-white border-rose-400' :
-                'bg-slate-900 text-white border-slate-700'
-              }`}
-            >
-              {toast.type === 'success' && <CheckCircle2 className="w-5 h-5 shrink-0" />}
-              {toast.type === 'error' && <AlertTriangle className="w-5 h-5 shrink-0" />}
-              {toast.type === 'info' && <Clock className="w-5 h-5 shrink-0" />}
-              <span className="text-xs font-semibold leading-relaxed">{toast.message}</span>
-              <button onClick={() => setToast(null)} className="ml-auto text-white/80 hover:text-white">
-                <X className="w-4 h-4" />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="glass-panel p-8 rounded-[2rem] w-full max-w-sm relative overflow-hidden shadow-2xl border border-white/60">
-          <div className="text-center mb-5">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-[2rem] overflow-hidden shadow-xl border border-white/60 flex items-center justify-center bg-white/50 backdrop-blur-md p-1">
-               <img src="/Absu.jpg" alt="ABSU Logo" className="w-full h-full object-cover rounded-2xl" onError={(e) => { (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=ABSU&background=0D8ABC&color=fff'; }} />
+      <div className="min-h-screen flex items-center justify-center bg-artistic-mesh p-4">
+        <div className="glass-panel p-8 rounded-[2rem] w-full max-w-sm relative overflow-hidden">
+          <div className="text-center mb-6">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-[2rem] overflow-hidden shadow-2xl border border-white/60 flex items-center justify-center bg-white/50 backdrop-blur-md">
+               <img src="/Absu.jpg" alt="ABSU Logo" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=ABSU&background=0D8ABC&color=fff'; }} />
             </div>
-            <h1 className="text-lg font-black text-slate-800 tracking-tight">ABSU STAFF DATABASE</h1>
-            <p className="text-xs text-slate-500 mt-1">
-              {authMode === 'signin' ? 'Sign in to access your staff portal profile.' : 'Create an academic staff account.'}
+            <h1 className="text-xl font-bold text-slate-800 mb-2">ABSU STAFF DATABASE</h1>
+            <p className="text-xs text-slate-500">
+              {authMode === 'signin' ? 'Sign in to access the staff portal.' : 'Register for an account.'}
             </p>
           </div>
           
-          {/* Actionable & User-Friendly Auth Error Banner */}
-          {(authErrorInfo || authError) && (
-            <div className="mb-4 p-3.5 bg-rose-50/90 border border-rose-200 rounded-2xl text-xs text-rose-900 shadow-sm space-y-2">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                <div className="flex-1 font-medium leading-relaxed">
-                  {authErrorInfo?.message || authError}
-                </div>
-              </div>
-
-              {/* One-click switch to Sign Up if credentials don't exist yet */}
-              {authErrorInfo?.canQuickSignUp && authMode === 'signin' && (
-                <div className="pt-2 border-t border-rose-200/80 flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-rose-700 font-semibold">Need an account?</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthMode('signup');
-                      setAuthErrorInfo(null);
-                      setAuthError('');
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] transition-all flex items-center gap-1 shadow-sm"
-                  >
-                    <UserPlus className="w-3 h-3" /> Create Account Now
-                  </button>
-                </div>
-              )}
-
-              {/* One-click switch to Sign In if email already exists */}
-              {authErrorInfo?.code === 'auth/email-already-in-use' && authMode === 'signup' && (
-                <div className="pt-2 border-t border-rose-200/80 flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-rose-700 font-semibold">Account exists:</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthMode('signin');
-                      setAuthErrorInfo(null);
-                      setAuthError('');
-                    }}
-                    className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] transition-all flex items-center gap-1 shadow-sm"
-                  >
-                    <LogIn className="w-3 h-3" /> Sign In Instead
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+          {authError && <div className="mb-4 p-2.5 bg-red-50 text-red-600 text-xs rounded-xl border border-red-200">{authError}</div>}
           
           <form onSubmit={handleAuth} className="flex flex-col gap-3">
             {authMode === 'signup' && (
               <>
                 <input 
                   type="text" 
-                  placeholder="Full Name (e.g. Dr. Ngozi Okafor)" 
+                  placeholder="Full Name" 
                   required 
                   value={authName}
                   onChange={(e) => setAuthName(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                  className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                 />
                 <input 
                   type="tel" 
-                  placeholder="Phone Number (e.g. +234 803 ...)" 
+                  placeholder="Phone Number" 
+                  required 
                   value={authPhone}
                   onChange={(e) => setAuthPhone(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+                  className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                 />
               </>
             )}
             <input 
               type="email" 
-              placeholder="Official or Personal Email" 
+              placeholder="Email Address" 
               required 
               value={authEmail}
-              onChange={(e) => {
-                setAuthEmail(e.target.value);
-                if (authError) {
-                  setAuthError('');
-                  setAuthErrorInfo(null);
-                }
-              }}
-              className="w-full px-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+              onChange={(e) => setAuthEmail(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
             />
             <input 
               type="password" 
-              placeholder="Password (minimum 6 characters)" 
+              placeholder="Password" 
               required 
               value={authPassword}
-              onChange={(e) => {
-                setAuthPassword(e.target.value);
-                if (authError) {
-                  setAuthError('');
-                  setAuthErrorInfo(null);
-                }
-              }}
-              className="w-full px-4 py-2.5 bg-slate-50/70 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
+              onChange={(e) => setAuthPassword(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
             />
             {authMode === 'signin' && (
-              <button 
-                type="button" 
-                onClick={handlePasswordReset} 
-                className="text-[11px] text-indigo-600 hover:text-indigo-800 hover:underline self-end font-semibold"
-              >
+              <button type="button" onClick={handlePasswordReset} className="text-[10px] text-indigo-600 hover:underline self-end">
                 Forgot Password?
               </button>
             )}
 
             <button 
               type="submit"
-              className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-2.5 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-xs mt-1 hover:-translate-y-0.5 active:translate-y-0"
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-lg shadow-md transition-all flex items-center justify-center gap-2 text-sm mt-2"
             >
               {authMode === 'signin' ? <LogIn className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-              {authMode === 'signin' ? 'Sign In to Portal' : 'Create Staff Account'}
+              {authMode === 'signin' ? 'Sign In' : 'Sign Up'}
             </button>
-
-            <div className="relative flex py-1.5 items-center">
+            <div className="relative flex py-2 items-center">
                 <div className="flex-grow border-t border-slate-200"></div>
-                <span className="flex-shrink-0 mx-3 text-slate-400 text-[11px] font-bold uppercase tracking-wider">Or</span>
+                <span className="flex-shrink-0 mx-4 text-slate-400 text-xs">Or</span>
                 <div className="flex-grow border-t border-slate-200"></div>
             </div>
-
             <button 
               type="button"
               onClick={handleGoogleAuth}
-              className="w-full bg-white/80 hover:bg-white text-slate-700 font-bold py-2.5 px-4 rounded-xl shadow-sm border border-slate-200 transition-all flex items-center justify-center gap-2 text-xs hover:-translate-y-0.5"
+              className="w-full glass-panel hover:bg-white/40 text-slate-700 font-bold py-3 px-4 rounded-xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-white/60 transition-all flex items-center justify-center gap-2 text-sm"
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -1625,124 +1204,21 @@ export default function App() {
             </button>
           </form>
           
-          <div className="mt-4 pt-3 border-t border-slate-200/70 text-center flex flex-col gap-2.5">
+          <div className="mt-4 text-center flex flex-col gap-2">
             <button 
-              onClick={() => { 
-                setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); 
-                setAuthError(''); 
-                setAuthErrorInfo(null); 
-              }}
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+              onClick={() => { setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); setAuthError(''); }}
+              className="text-xs text-indigo-600 hover:underline"
             >
-              {authMode === 'signin' ? 'Need an account? Sign up here' : 'Already have an account? Sign in'}
+              {authMode === 'signin' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
             </button>
-
-            <div className="flex items-center justify-between gap-2 pt-1">
-              <button 
-                type="button"
-                onClick={() => {
-                  setShowAdminPinModal(true);
-                  setAdminPinError('');
-                }}
-                className="text-[11px] font-bold text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5"
-                title="Direct Admin PIN Access (ABSU2025)"
-              >
-                <Key className="w-3.5 h-3.5" /> Admin PIN
-              </button>
-
-              <button 
-                type="button"
-                onClick={() => {
-                  setIsGuest(true);
-                  navigateTo('faculties');
-                }}
-                className="text-[11px] font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-3 py-1.5 rounded-xl transition-all flex items-center gap-1.5"
-              >
-                <GraduationCap className="w-3.5 h-3.5" /> Guest View
-              </button>
-            </div>
+            <button 
+              onClick={() => setIsGuest(true)}
+              className="text-xs text-slate-500 hover:text-slate-700 hover:underline"
+            >
+              Continue as Guest
+            </button>
           </div>
         </div>
-
-        {/* Admin PIN Unlock Modal accessible directly from Auth Screen */}
-        <AnimatePresence>
-          {showAdminPinModal && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm"
-              onClick={() => setShowAdminPinModal(false)}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                onClick={(e) => e.stopPropagation()}
-                className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl border border-indigo-100 relative overflow-hidden"
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 rounded-2xl bg-indigo-100 text-indigo-700 shrink-0">
-                    <Key className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">Administrator Access</h3>
-                    <p className="text-xs text-slate-500">Enter ABSU portal admin passcode</p>
-                  </div>
-                </div>
-
-                <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                  Direct administrator unlock to manage full database records, roster parsing, approvals, and deletion controls.
-                </p>
-
-                <form onSubmit={handleUnlockAdmin} className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Admin Passcode
-                    </label>
-                    <input
-                      type="password"
-                      autoFocus
-                      placeholder="Enter Passcode (e.g. ABSU2025)"
-                      value={adminPinInput}
-                      onChange={(e) => {
-                        setAdminPinInput(e.target.value);
-                        setAdminPinError('');
-                      }}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-400 focus:bg-white"
-                    />
-                    {adminPinError && (
-                      <span className="text-[11px] text-rose-600 font-semibold mt-1 block">
-                        {adminPinError}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="p-2.5 bg-indigo-50/60 rounded-xl border border-indigo-100 text-[11px] text-indigo-800">
-                    <span className="font-bold">Authorized Default:</span> <code className="bg-white px-1.5 py-0.5 rounded border border-indigo-200 font-mono font-bold">ABSU2025</code>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowAdminPinModal(false)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={!adminPinInput.trim()}
-                      className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold py-2.5 px-5 rounded-xl shadow-md transition-all flex items-center gap-1.5"
-                    >
-                      <ShieldCheck className="w-4 h-4" /> Unlock Admin
-                    </button>
-                  </div>
-                </form>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     );
   }
@@ -1785,104 +1261,62 @@ export default function App() {
             <span className="text-white font-bold text-xs tracking-wide leading-tight">ABSU STAFF<br/>DATABASE</span>
           </div>
         </div>
-        <div className="flex-1 py-4 flex flex-col justify-between">
-          <div>
-            <div className="px-4 mb-2 text-[10px] uppercase font-bold text-slate-500 tracking-wider">Main Navigation</div>
-            
-            {/* Dedicated Faculties & Departments tab visible to ALL users */}
-            <button 
-              onClick={() => navigateTo('faculties')} 
-              className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-all duration-300 ${activeView === 'faculties' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)] font-bold' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}
-            >
-              <GraduationCap className="w-4 h-4 text-indigo-400" /> Faculties & Depts
-              <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
-                14
-              </span>
-            </button>
-
-            {isAdmin ? (
-              <>
-                <button onClick={() => navigateTo('dashboard')} className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-all duration-300 ${activeView === 'dashboard' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)] font-bold' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
-                  <LayoutDashboard className="w-4 h-4" /> Dashboard
-                  {pendingCount > 0 && (
-                    <span className="ml-auto bg-amber-500 text-slate-900 font-black text-[10px] px-2 py-0.5 rounded-full animate-pulse">
-                      {pendingCount}
-                    </span>
-                  )}
-                </button>
-                <button onClick={() => navigateTo('directory')} className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-all duration-300 ${activeView === 'directory' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)] font-bold' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
-                  <Users className="w-4 h-4" /> Staff Directory
-                </button>
-                <button onClick={() => navigateTo('entry')} className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-all duration-300 ${activeView === 'entry' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)] font-bold' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
-                  <UserPlus className="w-4 h-4" /> Add Staff Member
-                </button>
-              </>
-            ) : (
-              <button onClick={() => navigateTo('entry')} className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-all duration-300 ${activeView === 'entry' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)] font-bold' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
-                <UserIcon className="w-4 h-4" /> {myStaffRecord ? 'My Staff Profile' : 'Register My Details'}
-                {myStaffRecord && (
-                  <span className={`ml-auto text-[9px] px-2 py-0.5 rounded-full font-bold ${
-                    getNormalizedStatus(myStaffRecord) === 'Approved' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
-                    getNormalizedStatus(myStaffRecord) === 'Rejected' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
-                    'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
-                  }`}>
-                    {getNormalizedStatus(myStaffRecord)}
+        <div className="flex-1 py-4">
+          <div className="px-4 mb-2 text-[10px] uppercase font-bold text-slate-500 tracking-wider">Main Navigation</div>
+          {isAdmin ? (
+            <>
+              <button onClick={() => setActiveView('dashboard')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'dashboard' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
+                <LayoutDashboard className="w-4 h-4" /> Dashboard
+                {pendingCount > 0 && (
+                  <span className="ml-auto bg-amber-500 text-slate-900 font-black text-[10px] px-2 py-0.5 rounded-full animate-pulse">
+                    {pendingCount}
                   </span>
                 )}
               </button>
-            )}
-            
-            <button 
-              onClick={() => {
-                navigateTo('news');
-                if (audioRef.current && !isAudioMuted) {
-                  audioRef.current.volume = 0.3;
-                  audioRef.current.play().catch(e => {
-                    console.log('Play blocked, mutating fallback:', e);
-                    setIsAudioMuted(true);
-                  });
-                }
-              }} 
-              className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'news' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}
-            >
-              <Rss className="w-4 h-4" /> News Feed
-            </button>
-            <button onClick={() => navigateTo('messages')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'messages' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
-              <MessageSquare className="w-4 h-4" /> Messages
-              <span className="ml-auto bg-red-500 text-[10px] px-1.5 rounded-full text-white font-bold">4</span>
-            </button>
-            <div className="px-4 mt-4 mb-2 text-[10px] uppercase font-bold text-slate-500 tracking-wider">System</div>
-            <button onClick={() => navigateTo('settings')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'settings' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
-              <Settings className="w-4 h-4" /> Settings
-            </button>
-          </div>
-
-          {/* Admin Mode Status Banner / PIN Trigger in Sidebar */}
-          <div className="px-3 pt-3">
-            {isAdmin ? (
-              <div className="p-2.5 rounded-xl bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 font-bold text-[11px]">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Admin Mode
-                </span>
-                {adminKeyUnlocked && (
-                  <button 
-                    onClick={handleRevokeAdminUnlock}
-                    className="text-[10px] text-emerald-400 hover:underline"
-                    title="Exit Admin Mode"
-                  >
-                    Exit
-                  </button>
-                )}
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowAdminPinModal(true)}
-                className="w-full p-2.5 rounded-xl bg-indigo-900/50 hover:bg-indigo-900/80 border border-indigo-500/30 text-indigo-200 flex items-center justify-center gap-1.5 text-xs font-bold transition-all"
-              >
-                <Key className="w-3.5 h-3.5 text-indigo-400" /> Admin Access (PIN)
+              <button onClick={() => setActiveView('directory')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'directory' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
+                <Users className="w-4 h-4" /> Staff Directory
               </button>
-            )}
-          </div>
+              <button onClick={() => setActiveView('entry')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'entry' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
+                <UserPlus className="w-4 h-4" /> Add Staff Member
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setActiveView('entry')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'entry' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
+              <UserIcon className="w-4 h-4" /> My Staff Profile
+              {myStaffRecord && (
+                <span className={`ml-auto text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                  getNormalizedStatus(myStaffRecord) === 'Approved' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' :
+                  getNormalizedStatus(myStaffRecord) === 'Rejected' ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30' :
+                  'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
+                }`}>
+                  {getNormalizedStatus(myStaffRecord)}
+                </span>
+              )}
+            </button>
+          )}
+          <button 
+            onClick={() => {
+              setActiveView('news');
+              if (audioRef.current && !isAudioMuted) {
+                audioRef.current.volume = 0.3;
+                audioRef.current.play().catch(e => {
+                  console.log('Play blocked, mutating fallback:', e);
+                  setIsAudioMuted(true);
+                });
+              }
+            }} 
+            className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'news' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}
+          >
+            <Rss className="w-4 h-4" /> News Feed
+          </button>
+          <button onClick={() => setActiveView('messages')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'messages' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
+            <MessageSquare className="w-4 h-4" /> Messages
+            <span className="ml-auto bg-red-500 text-[10px] px-1.5 rounded-full text-white font-bold">4</span>
+          </button>
+          <div className="px-4 mt-6 mb-2 text-[10px] uppercase font-bold text-slate-500 tracking-wider">System</div>
+          <button onClick={() => setActiveView('settings')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'settings' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
+            <Settings className="w-4 h-4" /> Settings
+          </button>
         </div>
         <div className="p-4 mt-auto border-t border-white/10 bg-slate-900/40 backdrop-blur-md">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => {
@@ -1896,12 +1330,12 @@ export default function App() {
               {user?.photoURL ? (
                 <img src={user.photoURL} alt="User" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-white text-xs font-bold">{user?.displayName?.charAt(0) || (user ? 'U' : 'G')}</span>
+                <span className="text-white text-xs font-bold">{user?.displayName?.charAt(0) || 'G'}</span>
               )}
             </div>
             <div className="flex-1 overflow-hidden">
               <div className="text-xs font-medium text-white truncate">{user?.displayName || (user ? 'User' : 'Guest')}</div>
-              <div className="text-[10px] text-slate-500 truncate">{user?.email || (isAdmin ? 'Admin Mode' : 'Guest User')}</div>
+              <div className="text-[10px] text-slate-500 truncate">{user?.email || 'Not signed in'}</div>
             </div>
           </div>
         </div>
@@ -1909,86 +1343,41 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Header */}
-        <header className="h-16 glass-panel border-b border-white/40 px-4 md:px-8 flex items-center justify-between shrink-0 z-20">
-          <div className="flex items-center gap-3">
-            {/* Mobile Hamburger Menu Toggle */}
-            <button
-              onClick={() => setMobileNavOpen(!mobileNavOpen)}
-              className="md:hidden p-2 rounded-xl bg-white/60 border border-slate-200 text-slate-700 hover:bg-white"
-              title="Open Navigation Menu"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-            <h1 className="text-base md:text-lg font-bold text-slate-800 truncate">
-              {activeView === 'faculties' && 'Faculties & Academic Departments'}
-              {activeView === 'dashboard' && 'Analytics Dashboard'}
-              {activeView === 'directory' && 'Staff Directory & Approvals'}
-              {activeView === 'entry' && (isAdmin ? 'Staff Management Entry' : (myStaffRecord ? 'My Staff Profile' : 'Register My Details'))}
-              {activeView === 'news' && 'News Feed'}
-              {activeView === 'messages' && 'Messages & Chat'}
-              {activeView === 'settings' && 'System Settings'}
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-2 md:gap-4">
-            {/* Dedicated Faculties Quick Switcher Chip */}
-            <button
-              onClick={() => navigateTo('faculties')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                activeView === 'faculties'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'bg-white/70 hover:bg-white text-slate-700 border border-slate-200'
-              }`}
-            >
-              <GraduationCap className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Faculties</span>
-            </button>
-
-            {/* Admin Status Pill / Passcode Unlock button in Header */}
-            {isAdmin ? (
-              <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" /> Admin Mode
-              </span>
-            ) : (
-              <button
-                onClick={() => setShowAdminPinModal(true)}
-                className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 shadow-sm transition-all flex items-center gap-1"
-                title="Enter Administrator Passcode"
-              >
-                <Key className="w-3 h-3 text-amber-600" /> Admin Login
-              </button>
-            )}
-
+        <header className="h-16 glass-panel border-b border-white/40 px-8 flex items-center justify-between shrink-0 z-20">
+          <h1 className="text-lg font-bold text-slate-800">
+            {activeView === 'dashboard' && 'Analytics Dashboard'}
+            {activeView === 'directory' && 'Staff Directory & Approvals'}
+            {activeView === 'entry' && (isAdmin ? 'Staff Management Entry' : 'My Staff Profile')}
+            {activeView === 'news' && 'News Feed'}
+            {activeView === 'messages' && 'Messages & Chat'}
+            {activeView === 'settings' && 'System Settings'}
+          </h1>
+          <div className="flex items-center gap-4">
             {isAdmin && (
               <>
-                <div className="relative hidden lg:block">
+                <div className="relative">
                   <input 
                     type="text" 
                     placeholder="Search records..." 
                     value={searchQuery} 
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSearchQuery(val);
-                      updateBrowserHistory(activeView, { search: val, replace: true });
-                    }} 
-                    className="pl-9 pr-4 py-2 bg-white/50 backdrop-blur-sm border border-white/40 rounded-full text-xs w-56 xl:w-72 focus:ring-2 focus:ring-indigo-400 focus:bg-white/80 outline-none shadow-inner transition-all" 
+                    onChange={(e) => setSearchQuery(e.target.value)} 
+                    className="pl-9 pr-4 py-2 bg-white/50 backdrop-blur-sm border border-white/40 rounded-full text-xs w-72 focus:ring-2 focus:ring-indigo-400 focus:bg-white/80 outline-none shadow-inner transition-all" 
                   />
                   <Search className="w-4 h-4 absolute left-3 top-2 text-indigo-400" />
                 </div>
-                <div className="flex gap-1.5 sm:gap-2">
-                  <button onClick={handleExportPDF} className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-[0_4px_12px_rgba(225,29,72,0.3)] hover:-translate-y-0.5 text-xs font-bold py-1.5 px-2.5 sm:px-3 rounded-full transition-all duration-300 flex items-center gap-1">
-                    <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">PDF</span>
+                <div className="flex gap-2">
+                  <button onClick={handleExportPDF} className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-[0_4px_12px_rgba(225,29,72,0.3)] hover:-translate-y-0.5 text-xs font-bold py-1.5 px-3 rounded-full transition-all duration-300 flex items-center gap-1.5">
+                    <Download className="w-3.5 h-3.5" /> PDF
                   </button>
-                  <button onClick={handleExportExcel} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-[0_4px_12px_rgba(16,185,129,0.3)] hover:-translate-y-0.5 text-xs font-bold py-1.5 px-2.5 sm:px-3 rounded-full transition-all duration-300 flex items-center gap-1">
-                    <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Excel</span>
+                  <button onClick={handleExportExcel} className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-[0_4px_12px_rgba(16,185,129,0.3)] hover:-translate-y-0.5 text-xs font-bold py-1.5 px-3 rounded-full transition-all duration-300 flex items-center gap-1.5">
+                    <Download className="w-3.5 h-3.5" /> Excel
                   </button>
                   <button 
                     onClick={() => setShowDeleteAllModal(true)} 
-                    className="bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-700 hover:to-red-800 text-white shadow-[0_4px_12px_rgba(225,29,72,0.35)] hover:-translate-y-0.5 text-xs font-bold py-1.5 px-2.5 sm:px-3 rounded-full transition-all duration-300 flex items-center gap-1"
+                    className="bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-700 hover:to-red-800 text-white shadow-[0_4px_12px_rgba(225,29,72,0.35)] hover:-translate-y-0.5 text-xs font-bold py-1.5 px-3 rounded-full transition-all duration-300 flex items-center gap-1.5"
                     title="Delete every single data currently uploaded on the website"
                   >
-                    <Trash2 className="w-3.5 h-3.5" /> <span className="hidden md:inline">Delete All Details</span>
+                    <Trash2 className="w-3.5 h-3.5" /> Delete All Details
                   </button>
                 </div>
               </>
@@ -1996,149 +1385,7 @@ export default function App() {
           </div>
         </header>
 
-        {/* Mobile Slide-Out Drawer Navigation */}
-        <AnimatePresence>
-          {mobileNavOpen && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="md:hidden fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm"
-              onClick={() => setMobileNavOpen(false)}
-            >
-              <motion.div
-                initial={{ x: -280 }}
-                animate={{ x: 0 }}
-                exit={{ x: -280 }}
-                transition={{ duration: 0.2 }}
-                onClick={(e) => e.stopPropagation()}
-                className="w-72 h-full bg-slate-950 text-white p-5 flex flex-col justify-between shadow-2xl"
-              >
-                <div>
-                  <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white/20 p-1">
-                        <img src="/Absu.jpg" alt="ABSU" className="w-full h-full object-cover rounded-lg" onError={(e) => { (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=ABSU'; }} />
-                      </div>
-                      <span className="font-bold text-xs">ABSU STAFF PORTAL</span>
-                    </div>
-                    <button onClick={() => setMobileNavOpen(false)} className="p-1.5 text-white/70 hover:text-white">
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-1">
-                    <button
-                      onClick={() => { navigateTo('faculties'); setMobileNavOpen(false); }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold ${activeView === 'faculties' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                    >
-                      <GraduationCap className="w-4 h-4" /> Faculties & Departments
-                    </button>
-
-                    {isAdmin ? (
-                      <>
-                        <button
-                          onClick={() => { navigateTo('dashboard'); setMobileNavOpen(false); }}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold ${activeView === 'dashboard' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                        >
-                          <LayoutDashboard className="w-4 h-4" /> Dashboard ({pendingCount} pending)
-                        </button>
-                        <button
-                          onClick={() => { navigateTo('directory'); setMobileNavOpen(false); }}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold ${activeView === 'directory' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                        >
-                          <Users className="w-4 h-4" /> Full Staff Directory
-                        </button>
-                        <button
-                          onClick={() => { navigateTo('entry'); setMobileNavOpen(false); }}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold ${activeView === 'entry' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                        >
-                          <UserPlus className="w-4 h-4" /> Add Staff Member
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        onClick={() => { navigateTo('entry'); setMobileNavOpen(false); }}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold ${activeView === 'entry' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                      >
-                        <UserIcon className="w-4 h-4" /> {myStaffRecord ? 'My Staff Profile' : 'Register Details'}
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => { navigateTo('news'); setMobileNavOpen(false); }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold ${activeView === 'news' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                    >
-                      <Rss className="w-4 h-4" /> News Feed
-                    </button>
-                    <button
-                      onClick={() => { navigateTo('messages'); setMobileNavOpen(false); }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold ${activeView === 'messages' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                    >
-                      <MessageSquare className="w-4 h-4" /> Messages
-                    </button>
-                    <button
-                      onClick={() => { navigateTo('settings'); setMobileNavOpen(false); }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold ${activeView === 'settings' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
-                    >
-                      <Settings className="w-4 h-4" /> System Settings
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-white/10 space-y-2">
-                  {!isAdmin ? (
-                    <button
-                      onClick={() => { setShowAdminPinModal(true); setMobileNavOpen(false); }}
-                      className="w-full py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center justify-center gap-2"
-                    >
-                      <Key className="w-4 h-4" /> Unlock Admin Privileges
-                    </button>
-                  ) : (
-                    <div className="p-2.5 rounded-xl bg-emerald-900/50 border border-emerald-500/30 text-emerald-300 text-xs flex items-center justify-between font-bold">
-                      <span className="flex items-center gap-1.5">
-                        <ShieldCheck className="w-4 h-4 text-emerald-400" /> Admin Mode
-                      </span>
-                      {adminKeyUnlocked && (
-                        <button onClick={handleRevokeAdminUnlock} className="text-[10px] text-emerald-400 underline">
-                          Exit
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         <AnimatePresence mode="wait">
-
-        {/* FACULTIES & ACADEMIC DEPARTMENTS EXPLORER VIEW (Accessible to all) */}
-        {activeView === 'faculties' && (
-          <motion.div
-            key="faculties"
-            initial={{ opacity: 0, y: 15, filter: 'blur(8px)' }}
-            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-            exit={{ opacity: 0, y: -15, filter: 'blur(8px)' }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="flex-1 flex flex-col min-h-0 overflow-hidden"
-          >
-            <FacultiesExplorer
-              onSelectForRegistration={handleSelectFacultyDeptForRegistration}
-              onFilterDirectory={isAdmin ? handleFilterDirectoryFromExplorer : undefined}
-              staffList={staffList}
-              isAdmin={isAdmin}
-              selectedFaculty={explorerFaculty}
-              selectedDept={explorerDept}
-              onSelectionChange={(faculty, dept) => {
-                setExplorerFaculty(faculty);
-                setExplorerDept(dept);
-                updateBrowserHistory('faculties', { faculty, dept });
-              }}
-            />
-          </motion.div>
-        )}
 
         {/* DASHBOARD VIEW */}
         {isAdmin && activeView === 'dashboard' && (
@@ -2172,7 +1419,7 @@ export default function App() {
 
                 <div className="flex items-center gap-2.5">
                   <button
-                    onClick={() => navigateTo('directory')}
+                    onClick={() => setActiveView('directory')}
                     className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white/70 hover:bg-white border border-slate-200 shadow-sm transition-all flex items-center gap-1.5"
                   >
                     <Users className="w-3.5 h-3.5 text-indigo-600" /> Full Directory
@@ -2190,7 +1437,7 @@ export default function App() {
               {/* Top Stats Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div 
-                  onClick={() => navigateTo('directory', { status: 'all' })}
+                  onClick={() => { setStatusFilter('all'); setActiveView('directory'); }}
                   className="glass-panel p-6 rounded-3xl cursor-pointer hover:border-indigo-400 transition-all hover:-translate-y-0.5"
                 >
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Total Staff (DB)</div>
@@ -2205,7 +1452,7 @@ export default function App() {
 
                 {/* Clickable Pending Approval Card */}
                 <div 
-                  onClick={() => navigateTo('directory', { status: 'Pending' })}
+                  onClick={() => { setStatusFilter('Pending'); setActiveView('directory'); }}
                   className="glass-panel p-6 rounded-3xl cursor-pointer border border-amber-300/80 bg-amber-50/40 hover:bg-amber-50/70 hover:shadow-lg transition-all hover:-translate-y-0.5 relative group"
                 >
                   <div className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1 flex items-center justify-between">
@@ -2226,7 +1473,7 @@ export default function App() {
                 </div>
 
                 <div 
-                  onClick={() => navigateTo('directory', { status: 'Approved' })}
+                  onClick={() => { setStatusFilter('Approved'); setActiveView('directory'); }}
                   className="glass-panel p-6 rounded-3xl cursor-pointer hover:border-emerald-400 transition-all hover:-translate-y-0.5"
                 >
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Approved Staff</div>
@@ -2240,7 +1487,7 @@ export default function App() {
                 </div>
 
                 <div 
-                  onClick={() => navigateTo('directory', { status: 'Rejected' })}
+                  onClick={() => { setStatusFilter('Rejected'); setActiveView('directory'); }}
                   className="glass-panel p-6 rounded-3xl cursor-pointer hover:border-rose-400 transition-all hover:-translate-y-0.5"
                 >
                   <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Rejected Staff</div>
@@ -2308,7 +1555,7 @@ export default function App() {
                     </div>
                   </div>
                   <button 
-                    onClick={() => navigateTo('directory', { status: 'Pending' })}
+                    onClick={() => { setStatusFilter('Pending'); setActiveView('directory'); }}
                     className="mt-4 w-full bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold py-2.5 px-4 rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-2"
                   >
                     <Clock className="w-4 h-4" /> Go to Pending Approvals ({pendingCount})
@@ -2320,7 +1567,7 @@ export default function App() {
               <div className="glass-panel rounded-[2rem] overflow-hidden mt-6">
                 <div className="bg-white/40 backdrop-blur-sm border-b border-white/50 px-5 py-3 flex items-center justify-between">
                   <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wide">Recent Staff Registrations</h3>
-                  <button onClick={() => navigateTo('directory')} className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center gap-1">
+                  <button onClick={() => setActiveView('directory')} className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center gap-1">
                     View Full Directory <ChevronRight className="w-3 h-3" />
                   </button>
                 </div>
@@ -2332,10 +1579,7 @@ export default function App() {
                       <Filter className="w-3.5 h-3.5 text-indigo-600" /> Filter:
                     </span>
                     <button
-                      onClick={() => {
-                        setStatusFilter('all');
-                        updateBrowserHistory(activeView, { status: 'all' });
-                      }}
+                      onClick={() => setStatusFilter('all')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                         statusFilter === 'all'
                           ? 'bg-indigo-600 text-white shadow-md'
@@ -2345,10 +1589,7 @@ export default function App() {
                       All ({staffList.length})
                     </button>
                     <button
-                      onClick={() => {
-                        setStatusFilter('Pending');
-                        updateBrowserHistory(activeView, { status: 'Pending' });
-                      }}
+                      onClick={() => setStatusFilter('Pending')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
                         statusFilter === 'Pending'
                           ? 'bg-amber-500 text-slate-900 shadow-md font-black'
@@ -2359,10 +1600,7 @@ export default function App() {
                       Pending ({pendingCount})
                     </button>
                     <button
-                      onClick={() => {
-                        setStatusFilter('Approved');
-                        updateBrowserHistory(activeView, { status: 'Approved' });
-                      }}
+                      onClick={() => setStatusFilter('Approved')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
                         statusFilter === 'Approved'
                           ? 'bg-emerald-600 text-white shadow-md'
@@ -2373,10 +1611,7 @@ export default function App() {
                       Approved ({approvedCount})
                     </button>
                     <button
-                      onClick={() => {
-                        setStatusFilter('Rejected');
-                        updateBrowserHistory(activeView, { status: 'Rejected' });
-                      }}
+                      onClick={() => setStatusFilter('Rejected')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
                         statusFilter === 'Rejected'
                           ? 'bg-rose-600 text-white shadow-md'
@@ -2392,10 +1627,8 @@ export default function App() {
                     <select
                       value={facultyFilter}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        setFacultyFilter(val);
+                        setFacultyFilter(e.target.value);
                         setDepartmentFilter('all');
-                        updateBrowserHistory(activeView, { faculty: val, dept: 'all' });
                       }}
                       className="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-white border border-slate-200 shadow-sm text-slate-700 focus:ring-1 focus:ring-indigo-400 outline-none max-w-[180px]"
                     >
@@ -2407,11 +1640,7 @@ export default function App() {
 
                     <select
                       value={departmentFilter}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setDepartmentFilter(val);
-                        updateBrowserHistory(activeView, { dept: val });
-                      }}
+                      onChange={(e) => setDepartmentFilter(e.target.value)}
                       disabled={facultyFilter === 'all'}
                       className="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-white border border-slate-200 shadow-sm text-slate-700 focus:ring-1 focus:ring-indigo-400 outline-none disabled:opacity-50 disabled:bg-slate-100 max-w-[180px]"
                     >
@@ -2429,7 +1658,6 @@ export default function App() {
                           setFacultyFilter('all');
                           setDepartmentFilter('all');
                           setStatusFilter('all');
-                          updateBrowserHistory(activeView, { faculty: 'all', dept: 'all', status: 'all' });
                         }}
                         className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 underline px-1 py-1"
                       >
@@ -2595,10 +1823,7 @@ export default function App() {
                       <Filter className="w-3.5 h-3.5 text-indigo-600" /> Filter:
                     </span>
                     <button
-                      onClick={() => {
-                        setStatusFilter('all');
-                        updateBrowserHistory(activeView, { status: 'all' });
-                      }}
+                      onClick={() => setStatusFilter('all')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                         statusFilter === 'all'
                           ? 'bg-indigo-600 text-white shadow-md'
@@ -2608,10 +1833,7 @@ export default function App() {
                       All Staff ({staffList.length})
                     </button>
                     <button
-                      onClick={() => {
-                        setStatusFilter('Pending');
-                        updateBrowserHistory(activeView, { status: 'Pending' });
-                      }}
+                      onClick={() => setStatusFilter('Pending')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
                         statusFilter === 'Pending'
                           ? 'bg-amber-500 text-slate-900 shadow-md font-black ring-2 ring-amber-400'
@@ -2622,10 +1844,7 @@ export default function App() {
                       Pending Approval ({pendingCount})
                     </button>
                     <button
-                      onClick={() => {
-                        setStatusFilter('Approved');
-                        updateBrowserHistory(activeView, { status: 'Approved' });
-                      }}
+                      onClick={() => setStatusFilter('Approved')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
                         statusFilter === 'Approved'
                           ? 'bg-emerald-600 text-white shadow-md'
@@ -2636,10 +1855,7 @@ export default function App() {
                       Approved ({approvedCount})
                     </button>
                     <button
-                      onClick={() => {
-                        setStatusFilter('Rejected');
-                        updateBrowserHistory(activeView, { status: 'Rejected' });
-                      }}
+                      onClick={() => setStatusFilter('Rejected')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
                         statusFilter === 'Rejected'
                           ? 'bg-rose-600 text-white shadow-md'
@@ -2656,10 +1872,8 @@ export default function App() {
                     <select
                       value={facultyFilter}
                       onChange={(e) => {
-                        const val = e.target.value;
-                        setFacultyFilter(val);
+                        setFacultyFilter(e.target.value);
                         setDepartmentFilter('all');
-                        updateBrowserHistory(activeView, { faculty: val, dept: 'all' });
                       }}
                       className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 shadow-sm text-slate-700 focus:ring-1 focus:ring-indigo-400 outline-none max-w-[200px]"
                     >
@@ -2671,11 +1885,7 @@ export default function App() {
 
                     <select
                       value={departmentFilter}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setDepartmentFilter(val);
-                        updateBrowserHistory(activeView, { dept: val });
-                      }}
+                      onChange={(e) => setDepartmentFilter(e.target.value)}
                       disabled={facultyFilter === 'all'}
                       className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-slate-200 shadow-sm text-slate-700 focus:ring-1 focus:ring-indigo-400 outline-none disabled:opacity-50 disabled:bg-slate-100 max-w-[200px]"
                     >
@@ -2693,7 +1903,6 @@ export default function App() {
                           setFacultyFilter('all');
                           setDepartmentFilter('all');
                           setStatusFilter('all');
-                          updateBrowserHistory(activeView, { faculty: 'all', dept: 'all', status: 'all' });
                         }}
                         className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 underline px-1 py-1"
                       >
@@ -2888,66 +2097,32 @@ export default function App() {
                                  <label className="block text-xs font-bold text-slate-700 mb-1">Email Address *</label>
                                  <input type="email" value={entryEmail} onChange={(e) => setEntryEmail(e.target.value)} className="w-full px-3 py-2 bg-white/50 border border-white/60 backdrop-blur-sm shadow-inner rounded-md text-xs focus:ring-1 focus:ring-indigo-400 focus:bg-white/80 transition-all outline-none" placeholder="e.g. ngozi.eze@absu.edu.ng" />
                               </div>
-                              {/* 2-Tier Dependent Faculty & Department Selection */}
-                              <div className="md:col-span-2 p-4 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-3">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
-                                    <GraduationCap className="w-4 h-4 text-indigo-600" />
-                                    Academic Placement (Faculty & Department) *
-                                  </span>
-                                  <span className="text-[10px] font-semibold text-indigo-600 bg-white px-2 py-0.5 rounded-full border border-indigo-200">
-                                    14 ABSU Faculties
-                                  </span>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
-                                      <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] flex items-center justify-center font-bold">1</span>
-                                      Faculty *
-                                    </label>
-                                    <select 
-                                      value={entryFaculty} 
-                                      onChange={(e) => handleFacultyChange(e.target.value)} 
-                                      className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 shadow-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none cursor-pointer"
-                                    >
-                                      <option value="">-- Choose Faculty (14 Faculties) --</option>
-                                      {FACULTIES_DATA.map(f => (
-                                        <option key={f.faculty} value={f.faculty}>{f.faculty}</option>
-                                      ))}
-                                    </select>
-                                    {entryFaculty && (
-                                      <span className="text-[10px] text-emerald-700 font-medium mt-1 block">
-                                        &check; {entryFaculty}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  <div>
-                                    <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
-                                      <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] flex items-center justify-center font-bold">2</span>
-                                      Department *
-                                    </label>
-                                    <select 
-                                      value={entryDept} 
-                                      onChange={(e) => setEntryDept(e.target.value)} 
-                                      disabled={!entryFaculty}
-                                      className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-indigo-900 shadow-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none cursor-pointer disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
-                                    >
-                                      <option value="">
-                                        {entryFaculty ? '-- Select Department --' : '-- Please Choose Faculty First --'}
-                                      </option>
-                                      {getDepartmentsForFaculty(entryFaculty).map(dept => (
-                                        <option key={dept} value={dept}>{dept}</option>
-                                      ))}
-                                    </select>
-                                    {entryDept && (
-                                      <span className="text-[10px] text-emerald-700 font-medium mt-1 block">
-                                        &check; Department of {entryDept}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
+                              <div>
+                                 <label className="block text-xs font-bold text-slate-700 mb-1">Faculty *</label>
+                                 <select 
+                                   value={entryFaculty} 
+                                   onChange={(e) => handleFacultyChange(e.target.value)} 
+                                   className="w-full px-3 py-2 bg-white/70 border border-white/60 backdrop-blur-sm shadow-inner rounded-md text-xs font-semibold text-slate-800 focus:ring-1 focus:ring-indigo-400 focus:bg-white outline-none"
+                                 >
+                                    <option value="">-- Select Faculty --</option>
+                                    {FACULTIES_DATA.map(f => (
+                                      <option key={f.faculty} value={f.faculty}>{f.faculty}</option>
+                                    ))}
+                                 </select>
+                              </div>
+                              <div>
+                                 <label className="block text-xs font-bold text-slate-700 mb-1">Department *</label>
+                                 <select 
+                                   value={entryDept} 
+                                   onChange={(e) => setEntryDept(e.target.value)} 
+                                   disabled={!entryFaculty}
+                                   className="w-full px-3 py-2 bg-white/70 border border-white/60 backdrop-blur-sm shadow-inner rounded-md text-xs font-semibold text-slate-800 focus:ring-1 focus:ring-indigo-400 focus:bg-white outline-none disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                                 >
+                                    <option value="">{entryFaculty ? '-- Select Department --' : '-- Choose Faculty First --'}</option>
+                                    {getDepartmentsForFaculty(entryFaculty).map(dept => (
+                                      <option key={dept} value={dept}>{dept}</option>
+                                    ))}
+                                 </select>
                               </div>
                               <div>
                                  <label className="block text-xs font-bold text-slate-700 mb-1">Rank *</label>
@@ -3341,80 +2516,34 @@ export default function App() {
                       </div>
                       <div>
                          <label className="block text-xs font-bold text-slate-700 mb-1">Email Address *</label>
-                         <input 
-                           type="email" 
-                           value={entryEmail || (user?.email ?? '')} 
-                           onChange={(e) => setEntryEmail(e.target.value)} 
-                           disabled={!!user?.email && !isAdmin} 
-                           className={`w-full px-3 py-2 border rounded-md text-xs outline-none transition-all ${
-                             user?.email && !isAdmin 
-                               ? 'bg-slate-100 border-slate-200 text-slate-600 cursor-not-allowed' 
-                               : 'bg-white/70 border-white/60 focus:ring-1 focus:ring-indigo-400 focus:bg-white text-slate-800'
-                           }`} 
-                           placeholder="e.g. lecturer@absu.edu.ng" 
-                         />
+                         <input type="email" value={entryEmail || user?.email || ''} onChange={(e) => setEntryEmail(e.target.value)} disabled={!isAdmin} className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-md text-xs text-slate-600 outline-none cursor-not-allowed" placeholder="e.g. yourname@absu.edu.ng" />
                       </div>
-
-                      {/* 2-Tier Dependent Faculty & Department Selection */}
-                      <div className="md:col-span-2 p-4 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
-                            <GraduationCap className="w-4 h-4 text-indigo-600" />
-                            Academic Placement (Faculty & Department) *
-                          </span>
-                          <span className="text-[10px] font-semibold text-indigo-600 bg-white px-2 py-0.5 rounded-full border border-indigo-200">
-                            Required for ABSU Accreditation
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
-                              <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] flex items-center justify-center font-bold">1</span>
-                              Faculty *
-                            </label>
-                            <select 
-                              value={entryFaculty} 
-                              onChange={(e) => handleFacultyChange(e.target.value)} 
-                              className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 shadow-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none cursor-pointer"
-                            >
-                              <option value="">-- Choose Faculty (14 Faculties) --</option>
-                              {FACULTIES_DATA.map(f => (
-                                <option key={f.faculty} value={f.faculty}>{f.faculty}</option>
-                              ))}
-                            </select>
-                            {entryFaculty && (
-                              <span className="text-[10px] text-emerald-700 font-medium mt-1 block">
-                                &check; {entryFaculty}
-                              </span>
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-[11px] font-bold text-slate-700 mb-1 flex items-center gap-1">
-                              <span className="w-4 h-4 rounded-full bg-indigo-600 text-white text-[9px] flex items-center justify-center font-bold">2</span>
-                              Department *
-                            </label>
-                            <select 
-                              value={entryDept} 
-                              onChange={(e) => setEntryDept(e.target.value)} 
-                              disabled={!entryFaculty}
-                              className="w-full px-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-indigo-900 shadow-sm focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none cursor-pointer disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
-                            >
-                              <option value="">
-                                {entryFaculty ? '-- Select Department --' : '-- Please Choose Faculty First --'}
-                              </option>
-                              {getDepartmentsForFaculty(entryFaculty).map(dept => (
-                                <option key={dept} value={dept}>{dept}</option>
-                              ))}
-                            </select>
-                            {entryDept && (
-                              <span className="text-[10px] text-emerald-700 font-medium mt-1 block">
-                                &check; Department of {entryDept}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                      <div>
+                         <label className="block text-xs font-bold text-slate-700 mb-1">Faculty *</label>
+                         <select 
+                           value={entryFaculty} 
+                           onChange={(e) => handleFacultyChange(e.target.value)} 
+                           className="w-full px-3 py-2 bg-white/70 border border-white/60 backdrop-blur-sm shadow-inner rounded-md text-xs font-semibold text-slate-800 focus:ring-1 focus:ring-indigo-400 focus:bg-white outline-none"
+                         >
+                            <option value="">-- Select Faculty --</option>
+                            {FACULTIES_DATA.map(f => (
+                              <option key={f.faculty} value={f.faculty}>{f.faculty}</option>
+                            ))}
+                         </select>
+                      </div>
+                      <div>
+                         <label className="block text-xs font-bold text-slate-700 mb-1">Department *</label>
+                         <select 
+                           value={entryDept} 
+                           onChange={(e) => setEntryDept(e.target.value)} 
+                           disabled={!entryFaculty}
+                           className="w-full px-3 py-2 bg-white/70 border border-white/60 backdrop-blur-sm shadow-inner rounded-md text-xs font-semibold text-slate-800 focus:ring-1 focus:ring-indigo-400 focus:bg-white outline-none disabled:opacity-50 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                         >
+                            <option value="">{entryFaculty ? '-- Select Department --' : '-- Choose Faculty First --'}</option>
+                            {getDepartmentsForFaculty(entryFaculty).map(dept => (
+                              <option key={dept} value={dept}>{dept}</option>
+                            ))}
+                         </select>
                       </div>
                       <div>
                          <label className="block text-xs font-bold text-slate-700 mb-1">Rank *</label>
@@ -3735,99 +2864,11 @@ export default function App() {
                       <h3 className="text-sm font-bold text-slate-800">System Settings</h3>
                       <p className="text-xs text-slate-500">Manage application preferences and configurations.</p>
                   </div>
-                  <div className="p-5 space-y-5">
+                  <div className="p-5 space-y-4">
                       <div>
                          <label className="block text-xs font-bold text-slate-700 mb-1">Institution Name</label>
                          <input type="text" value="Abia State University" disabled className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-md text-xs text-slate-500 cursor-not-allowed outline-none" />
                       </div>
-
-                      {/* Administrator Access & Mode Section */}
-                      <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                            <ShieldCheck className="w-4 h-4 text-indigo-600" />
-                            Administrator Privileges
-                          </span>
-                          {isAdmin ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                              Admin Mode Active
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700">
-                              Lecturer / Guest Mode
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-600 leading-relaxed">
-                          {isAdmin 
-                            ? 'You currently have full administrator access to all staff records, approvals, deletion, and bulk uploads.'
-                            : 'Enter the ABSU portal admin passcode (ABSU2025) to unlock the full administrative suite.'}
-                        </p>
-                        <div className="pt-1 flex items-center gap-2">
-                          {isAdmin ? (
-                            adminKeyUnlocked && (
-                              <button
-                                type="button"
-                                onClick={handleRevokeAdminUnlock}
-                                className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all"
-                              >
-                                Switch to Standard Lecturer View
-                              </button>
-                            )
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setShowAdminPinModal(true)}
-                              className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all flex items-center gap-1.5"
-                            >
-                              <Key className="w-3.5 h-3.5" /> Unlock Admin Privileges (Passcode)
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Academic Faculties Registry Status */}
-                      <div className="p-4 rounded-2xl bg-white/60 border border-slate-200 flex items-center justify-between">
-                        <div>
-                          <span className="text-xs font-bold text-slate-800 block">ABSU Academic Faculties Registry</span>
-                          <span className="text-[11px] text-slate-500">14 Faculties & all accredited departments active</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setActiveView('faculties')}
-                          className="px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 border border-indigo-200 transition-colors flex items-center gap-1"
-                        >
-                          <GraduationCap className="w-3.5 h-3.5" /> Open Explorer
-                        </button>
-                      </div>
-
-                      {/* Danger Zone: Delete All Details */}
-                      {isAdmin && (
-                        <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-rose-950 flex items-center gap-1.5">
-                              <AlertTriangle className="w-4 h-4 text-rose-600" />
-                              Danger Zone: Database Management
-                            </span>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200">
-                              Admin Only
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-rose-900/80 leading-relaxed">
-                            Permanently delete every single data and record currently uploaded on the website.
-                          </p>
-                          <div className="pt-1">
-                            <button
-                              type="button"
-                              onClick={() => setShowDeleteAllModal(true)}
-                              className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold py-2 px-4 rounded-xl shadow-sm transition-all flex items-center gap-1.5"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" /> Delete All Details
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
                       <div>
                          <label className="block text-xs font-bold text-slate-700 mb-1">Admin Approval Notifications</label>
                          <div className="flex items-center gap-2 mt-2">
@@ -3835,7 +2876,6 @@ export default function App() {
                              <span className="text-xs text-slate-600">Notify Admin when a staff member submits details (Pending status)</span>
                          </div>
                       </div>
-
                       <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-end gap-3">
                          {settingsSaved && <span className="text-emerald-600 text-xs font-bold flex items-center gap-1"><Check className="w-4 h-4"/> Saved!</span>}
                          <button onClick={handleSaveSettings} className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-600 hover:via-purple-600 hover:to-pink-600 text-white shadow-md hover:-translate-y-0.5 text-xs font-bold py-2 px-4 rounded-xl transition-all duration-300">Save Changes</button>
@@ -4414,86 +3454,6 @@ export default function App() {
                     </button>
                   </div>
                 )}
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ADMIN PIN UNLOCK MODAL */}
-        <AnimatePresence>
-          {showAdminPinModal && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm"
-              onClick={() => setShowAdminPinModal(false)}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                onClick={(e) => e.stopPropagation()}
-                className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl border border-indigo-100 relative overflow-hidden"
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="p-3 rounded-2xl bg-indigo-100 text-indigo-700 shrink-0">
-                    <Key className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">Administrator Access</h3>
-                    <p className="text-xs text-slate-500">Enter ABSU portal admin passcode</p>
-                  </div>
-                </div>
-
-                <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                  Unlock access to the full Staff Directory, pending approvals, analytics dashboard, roster uploads, and master controls.
-                </p>
-
-                <form onSubmit={handleUnlockAdmin} className="space-y-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                      Admin Passcode
-                    </label>
-                    <input
-                      type="password"
-                      autoFocus
-                      placeholder="Enter Passcode (e.g. ABSU2025)"
-                      value={adminPinInput}
-                      onChange={(e) => {
-                        setAdminPinInput(e.target.value);
-                        setAdminPinError('');
-                      }}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-400 focus:bg-white"
-                    />
-                    {adminPinError && (
-                      <span className="text-[11px] text-rose-600 font-semibold mt-1 block">
-                        {adminPinError}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="p-2.5 bg-indigo-50/60 rounded-xl border border-indigo-100 text-[11px] text-indigo-800">
-                    <span className="font-bold">Authorized Default:</span> <code className="bg-white px-1.5 py-0.5 rounded border border-indigo-200 font-mono font-bold">ABSU2025</code>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowAdminPinModal(false)}
-                      className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={!adminPinInput.trim()}
-                      className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold py-2.5 px-5 rounded-xl shadow-md transition-all flex items-center gap-1.5"
-                    >
-                      <ShieldCheck className="w-4 h-4" /> Unlock Admin
-                    </button>
-                  </div>
-                </form>
               </motion.div>
             </motion.div>
           )}
