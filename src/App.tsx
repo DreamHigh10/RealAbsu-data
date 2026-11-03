@@ -53,10 +53,15 @@ export default function App() {
   const [adminList, setAdminList] = useState<any[]>([]);
   const [showAdminManagementModal, setShowAdminManagementModal] = useState(false);
   const [newAdminEmail, setNewAdminEmail] = useState('');
-  const [newAdminRole, setNewAdminRole] = useState<'co_admin' | 'admin'>('co_admin');
+  const [newAdminRole, setNewAdminRole] = useState<'super_admin' | 'co_admin'>('super_admin');
   const [isAssigningAdmin, setIsAssigningAdmin] = useState(false);
   const [isEditingMyDetails, setIsEditingMyDetails] = useState(false);
   const [activeView, setActiveView] = useState('entry');
+  
+  // 2-Minute Inactivity Session Timeout States
+  const [showInactivityWarning, setShowInactivityWarning] = useState(false);
+  const [inactivityCountdown, setInactivityCountdown] = useState(20);
+  const [inactivityNotice, setInactivityNotice] = useState<string | null>(null);
   
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -129,15 +134,22 @@ export default function App() {
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Super Admin: Has full, unfettered access to EVERY function on the website
+  // Appointed roles from /admins collection
   const userEmailLower = user?.email?.toLowerCase().trim() || '';
-  const isSuperAdmin = isSuperAdminEmail(userEmailLower);
+  const appointedAdminDoc = adminList.find(
+    (a) => a.email?.toLowerCase().trim() === userEmailLower
+  );
+  const isAppointedSuperAdmin = appointedAdminDoc?.role === 'super_admin';
+  const isAppointedCoAdmin = appointedAdminDoc?.role === 'co_admin' || appointedAdminDoc?.role === 'admin';
 
-  // Co-Admin / Admin: "The work of the co-admin or just admin is simple: they can only add other people's details on the website."
-  const isCoAdmin = isSuperAdmin || isCoAdminRole;
+  // Super Admin: Designated permanent super admins OR anyone appointed as Super Admin by a Super Admin
+  const isSuperAdmin = isSuperAdminEmail(userEmailLower) || isAppointedSuperAdmin;
+
+  // Co-Admin: Granted administrative access to website features
+  const isCoAdmin = isSuperAdmin || isCoAdminRole || isAppointedCoAdmin;
   
-  // Full management view permissions (Dashboard, Directory, Approvals, Deletions, Roster Upload, Settings) are strictly Super Admin
-  const isAdmin = isSuperAdmin;
+  // Administrative capabilities (Dashboard, Directory, Approvals, News Feed, Staff Details)
+  const isAdmin = isSuperAdmin || isCoAdmin;
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -145,6 +157,63 @@ export default function App() {
       setToast(null);
     }, 4500);
   };
+
+  // 2-MINUTE INACTIVITY SESSION AUTO-LOGOUT
+  const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000; // 2 minutes (120,000 ms)
+  const INACTIVITY_WARNING_MS = 20 * 1000;    // 20-second advance warning
+  const lastActivityRef = useRef<number>(Date.now());
+
+  const handleResetActivity = () => {
+    lastActivityRef.current = Date.now();
+    setShowInactivityWarning(false);
+  };
+
+  useEffect(() => {
+    if (!user) {
+      setShowInactivityWarning(false);
+      return;
+    }
+
+    lastActivityRef.current = Date.now();
+
+    const recordUserActivity = () => {
+      lastActivityRef.current = Date.now();
+      setShowInactivityWarning((prev) => (prev ? false : prev));
+    };
+
+    const activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+    activityEvents.forEach((ev) => window.addEventListener(ev, recordUserActivity, { passive: true }));
+
+    const checkInterval = setInterval(() => {
+      const elapsed = Date.now() - lastActivityRef.current;
+      const remainingMs = INACTIVITY_TIMEOUT_MS - elapsed;
+
+      if (remainingMs <= 0) {
+        // Inactive for 2 full minutes -> automatically log out!
+        clearInterval(checkInterval);
+        setShowInactivityWarning(false);
+        setInactivityNotice("You were automatically logged out due to 2 minutes of inactivity for your security.");
+        signOut(auth).then(() => {
+          setActiveView('entry');
+          setAuthMode('signin');
+          showToast("Logged out automatically due to 2 minutes of inactivity.", "info");
+        }).catch((err) => {
+          console.error("Auto logout error:", err);
+        });
+      } else if (remainingMs <= INACTIVITY_WARNING_MS) {
+        // Less than 20 seconds remaining -> show countdown warning
+        setShowInactivityWarning(true);
+        setInactivityCountdown(Math.ceil(remainingMs / 1000));
+      } else {
+        setShowInactivityWarning(false);
+      }
+    }, 1000);
+
+    return () => {
+      activityEvents.forEach((ev) => window.removeEventListener(ev, recordUserActivity));
+      clearInterval(checkInterval);
+    };
+  }, [user]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -172,8 +241,8 @@ export default function App() {
     return 'Pending';
   };
 
-  // Listen to staff data with strict RBAC:
-  // - SuperAdmins & Appointed Admins get the full staff database
+  // Listen to staff data with RBAC:
+  // - Super Admins & Co-Admins get the full staff database
   // - Regular users get ONLY their own record matching their email/userId
   // - Guests receive no staff records
   useEffect(() => {
@@ -183,7 +252,7 @@ export default function App() {
       return;
     }
 
-    if (isSuperAdmin) {
+    if (isSuperAdmin || isCoAdmin) {
       setIsAdminRole(true);
       const qStaff = query(collection(db, 'staff'), orderBy('createdAt', 'desc'));
       const unsub = onSnapshot(
@@ -195,7 +264,7 @@ export default function App() {
       );
       return () => unsub();
     } else {
-      // Query only own record for non-superadmin
+      // Query only own record for non-admin
       const emails = [user.email, user.email?.toLowerCase()].filter(Boolean) as string[];
       const uniqueEmails = Array.from(new Set(emails));
       const qMyStaff = query(collection(db, 'staff'), where('email', 'in', uniqueEmails));
@@ -204,11 +273,10 @@ export default function App() {
         qMyStaff,
         (snapshot) => {
           const myDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          const hasCoAdminRole = myDocs.some((d: any) => d.role === 'admin' || d.role === 'co_admin');
+          const hasCoAdminRole = myDocs.some((d: any) => d.role === 'admin' || d.role === 'co_admin' || d.role === 'super_admin');
           if (hasCoAdminRole) {
             setIsCoAdminRole(true);
           }
-          // Co-Admin / regular user ONLY gets their own document
           setStaffList(myDocs);
         },
         (err) => console.warn("User staff record listener notice:", err)
@@ -216,9 +284,9 @@ export default function App() {
 
       return () => unsubMyStaff();
     }
-  }, [user, isSuperAdmin]);
+  }, [user, isSuperAdmin, isCoAdmin]);
 
-  // Listen to appointed admins collection (for co-admins and admins)
+  // Listen to appointed admins collection (for co-admins and super admins)
   useEffect(() => {
     if (!user) {
       setAdminList([]);
@@ -232,9 +300,12 @@ export default function App() {
         const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setAdminList(list);
         const myEmail = user.email?.toLowerCase().trim() || '';
-        const matchingDoc = list.find((a: any) => a.email?.toLowerCase().trim() === myEmail);
+        const matchingDoc: any = list.find((a: any) => a.email?.toLowerCase().trim() === myEmail);
         if (matchingDoc) {
           setIsCoAdminRole(true);
+          if (matchingDoc.role === 'super_admin') {
+            setIsAdminRole(true);
+          }
         }
       },
       (err) => console.warn("Admins collection listener notice:", err)
@@ -274,12 +345,12 @@ export default function App() {
     };
   }, [user, isGuest]);
 
-  // Route security: strictly redirect non-superadmin away from super-admin-only views (Dashboard, Directory, Settings)
+  // Route security: strictly redirect non-admin users away from admin views (Dashboard, Directory, Settings)
   useEffect(() => {
-    if (!isSuperAdmin && (activeView === 'dashboard' || activeView === 'directory' || activeView === 'settings')) {
+    if (!isAdmin && (activeView === 'dashboard' || activeView === 'directory' || activeView === 'settings')) {
       setActiveView('entry');
     }
-  }, [isSuperAdmin, activeView]);
+  }, [isAdmin, activeView]);
 
   useEffect(() => {
     if (activeView === 'news') {
@@ -452,10 +523,10 @@ export default function App() {
     }
   };
 
-  // SUPER ADMIN ACTION: Appoint a Co-Admin or Admin by email
-  const handleAppointAdmin = async (targetEmail: string, roleType: 'co_admin' | 'admin') => {
+  // SUPER ADMIN ACTION: Appoint a Super Admin or Co-Admin by email
+  const handleAppointAdmin = async (targetEmail: string, roleType: 'super_admin' | 'co_admin') => {
     if (!isSuperAdmin) {
-      showToast("Only Super Admins can appoint admins.", "error");
+      showToast("Only Super Admins can appoint administrators.", "error");
       return;
     }
     const cleanEmail = targetEmail.trim().toLowerCase();
@@ -463,8 +534,8 @@ export default function App() {
       showToast("Please enter a valid email address.", "error");
       return;
     }
-    if (isSuperAdminEmail(cleanEmail)) {
-      showToast("This email is already a permanent Super Admin.", "info");
+    if (isSuperAdminEmail(cleanEmail) && roleType !== 'super_admin') {
+      showToast("Permanent Super Admin accounts cannot be changed.", "info");
       return;
     }
     setIsAssigningAdmin(true);
@@ -485,7 +556,7 @@ export default function App() {
         });
       }
 
-      showToast(`User ${cleanEmail} has been appointed as ${roleType === 'co_admin' ? 'Co-Admin' : 'Admin'}!`, "success");
+      showToast(`User ${cleanEmail} has been appointed as ${roleType === 'super_admin' ? 'Super Admin (Full Access)' : 'Co-Admin'}!`, "success");
       setNewAdminEmail('');
     } catch (err: any) {
       console.error("Error appointing admin:", err);
@@ -503,7 +574,7 @@ export default function App() {
     }
     const cleanEmail = targetEmail.trim().toLowerCase();
     if (isSuperAdminEmail(cleanEmail)) {
-      showToast("Super Admin roles cannot be revoked.", "error");
+      showToast("Permanent Super Admin roles cannot be revoked.", "error");
       return;
     }
     if (!window.confirm(`Are you sure you want to revoke admin privileges for ${targetEmail}?`)) return;
@@ -529,9 +600,9 @@ export default function App() {
     }
   };
 
-  const handleMakeAdmin = async (staffId: string, staffEmail?: string, roleType: 'co_admin' | 'admin' = 'co_admin') => {
+  const handleMakeAdmin = async (staffId: string, staffEmail?: string, roleType: 'super_admin' | 'co_admin' = 'super_admin') => {
     if (!isSuperAdmin) {
-      showToast("Only Super Admins can promote staff to Co-Admin / Admin.", "error");
+      showToast("Only Super Admins can assign administrator roles.", "error");
       return;
     }
     try {
@@ -544,7 +615,7 @@ export default function App() {
           assignedAt: serverTimestamp()
         });
       }
-      showToast(`Staff member appointed as ${roleType === 'co_admin' ? 'Co-Admin' : 'Admin'}!`, "success");
+      showToast(`Staff member appointed as ${roleType === 'super_admin' ? 'Super Admin (Full Master Access)' : 'Co-Admin'}!`, "success");
     } catch(err: any) {
       console.error(err);
       showToast("Failed to assign role: " + (err.message || 'Error'), "error");
@@ -1301,6 +1372,16 @@ export default function App() {
             </p>
           </div>
           
+          {inactivityNotice && (
+            <div className="mb-4 p-3.5 bg-amber-50 text-amber-900 text-xs rounded-2xl border border-amber-300 shadow-sm flex items-start gap-2.5">
+              <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
+              <div>
+                <div className="font-bold text-amber-950">Session Timed Out</div>
+                <div className="text-[11px] text-amber-800 leading-relaxed mt-0.5">{inactivityNotice}</div>
+              </div>
+            </div>
+          )}
+
           {authError && <div className="mb-4 p-2.5 bg-red-50 text-red-600 text-xs rounded-xl border border-red-200">{authError}</div>}
           
           <form onSubmit={handleAuth} className="flex flex-col gap-3">
@@ -1463,12 +1544,25 @@ export default function App() {
               </button>
             </>
           ) : isCoAdmin ? (
-            <button onClick={() => setActiveView('entry')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'entry' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
-              <UserPlus className="w-4 h-4" /> Add Staff Details
-              <span className="ml-auto bg-purple-500/30 text-purple-200 border border-purple-400/30 text-[9px] px-1.5 py-0.5 rounded-full font-bold">
-                Co-Admin
-              </span>
-            </button>
+            <>
+              <button onClick={() => setActiveView('dashboard')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'dashboard' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
+                <LayoutDashboard className="w-4 h-4" /> Dashboard
+                {pendingCount > 0 && (
+                  <span className="ml-auto bg-amber-500 text-slate-900 font-black text-[10px] px-2 py-0.5 rounded-full animate-pulse">
+                    {pendingCount}
+                  </span>
+                )}
+              </button>
+              <button onClick={() => setActiveView('directory')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'directory' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
+                <Users className="w-4 h-4" /> Staff Directory
+              </button>
+              <button onClick={() => setActiveView('entry')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'entry' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
+                <UserPlus className="w-4 h-4" /> Add Staff Member
+                <span className="ml-auto bg-purple-500/30 text-purple-200 border border-purple-400/30 text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                  Co-Admin
+                </span>
+              </button>
+            </>
           ) : (
             <button onClick={() => setActiveView('entry')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'entry' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
               <UserIcon className="w-4 h-4" /> My Staff Profile
@@ -1502,7 +1596,7 @@ export default function App() {
             <MessageSquare className="w-4 h-4" /> Messages
             <span className="ml-auto bg-red-500 text-[10px] px-1.5 rounded-full text-white font-bold">4</span>
           </button>
-          {isSuperAdmin && (
+          {isAdmin && (
             <>
               <div className="px-4 mt-6 mb-2 text-[10px] uppercase font-bold text-slate-500 tracking-wider">System</div>
               <button onClick={() => setActiveView('settings')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'settings' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
@@ -1533,7 +1627,7 @@ export default function App() {
                 {isCoAdmin && !isSuperAdmin && <ShieldCheck className="w-3.5 h-3.5 text-purple-400 shrink-0" />}
               </div>
               <div className="text-[10px] text-slate-400 truncate">
-                {isSuperAdmin ? 'Super Admin' : (isCoAdmin ? 'Co-Admin (Can Add Staff)' : (user?.email || 'Not signed in'))}
+                {isSuperAdmin ? 'Super Admin' : (isCoAdmin ? 'Co-Admin' : (user?.email || 'Not signed in'))}
               </div>
             </div>
           </div>
@@ -2162,11 +2256,15 @@ export default function App() {
                           <td className="px-5 py-2.5 whitespace-nowrap">
                             {isSuperAdminEmail(staff.email) ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-xs">
+                                <Crown className="w-3 h-3 text-amber-600" /> Permanent Super Admin
+                              </span>
+                            ) : (staff.role === 'super_admin' || adminList.some(a => a.email?.toLowerCase().trim() === staff.email?.toLowerCase().trim() && a.role === 'super_admin')) ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-xs" title="Super Admin with access to everything">
                                 <Crown className="w-3 h-3 text-amber-600" /> Super Admin
                               </span>
-                            ) : (staff.role === 'admin' || staff.role === 'co_admin' || adminList.some(a => a.email?.toLowerCase().trim() === staff.email?.toLowerCase().trim())) ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-300 shadow-xs" title="Authorized to register other staff details">
-                                <ShieldCheck className="w-3 h-3 text-purple-600" /> {staff.role === 'admin' ? 'Admin' : 'Co-Admin'}
+                            ) : (staff.role === 'co_admin' || staff.role === 'admin' || adminList.some(a => a.email?.toLowerCase().trim() === staff.email?.toLowerCase().trim() && (a.role === 'co_admin' || a.role === 'admin'))) ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-300 shadow-xs" title="Co-Admin with administrative access">
+                                <ShieldCheck className="w-3 h-3 text-purple-600" /> Co-Admin
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
@@ -2254,7 +2352,7 @@ export default function App() {
                                   </button>
                                 )}
                                 {!isSuperAdminEmail(staff.email) && (
-                                  (staff.role === "admin" || staff.role === "co_admin" || adminList.some(a => a.email?.toLowerCase().trim() === staff.email?.toLowerCase().trim())) ? (
+                                  (staff.role === "super_admin" || staff.role === "co_admin" || staff.role === "admin" || adminList.some(a => a.email?.toLowerCase().trim() === staff.email?.toLowerCase().trim())) ? (
                                     <button 
                                       onClick={() => handleRevokeAdmin(staff.email, staff.id)} 
                                       className="text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 font-bold px-2 py-1 ml-1 border border-amber-300 rounded-lg text-[10px] transition-all"
@@ -2265,18 +2363,20 @@ export default function App() {
                                   ) : (
                                     <>
                                       <button 
-                                        onClick={() => handleMakeAdmin(staff.id, staff.email, 'co_admin')} 
-                                        className="text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 font-bold px-2 py-1 ml-1 border border-purple-300 rounded-lg text-[10px] transition-all"
-                                        title="Grant Co-Admin permission to add other staff details"
+                                        onClick={() => handleMakeAdmin(staff.id, staff.email, 'super_admin')} 
+                                        className="text-amber-800 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 font-bold px-2 py-1 ml-1 border border-amber-300 rounded-lg text-[10px] transition-all inline-flex items-center gap-1 shadow-xs"
+                                        title="Make Super Admin: Full master access to everything"
                                       >
-                                        + Co-Admin
+                                        <Crown className="w-3 h-3 text-amber-600" />
+                                        + Super Admin
                                       </button>
                                       <button 
-                                        onClick={() => handleMakeAdmin(staff.id, staff.email, 'admin')} 
-                                        className="text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 font-bold px-2 py-1 ml-1 border border-blue-300 rounded-lg text-[10px] transition-all"
-                                        title="Grant Admin permission to add other staff details"
+                                        onClick={() => handleMakeAdmin(staff.id, staff.email, 'co_admin')} 
+                                        className="text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 font-bold px-2 py-1 ml-1 border border-purple-300 rounded-lg text-[10px] transition-all inline-flex items-center gap-1 shadow-xs"
+                                        title="Make Co-Admin: Access to administrative functions"
                                       >
-                                        + Admin
+                                        <ShieldCheck className="w-3 h-3 text-purple-600" />
+                                        + Co-Admin
                                       </button>
                                     </>
                                   )
@@ -3147,10 +3247,34 @@ export default function App() {
                          <input type="text" value="Abia State University" disabled className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-md text-xs text-slate-500 cursor-not-allowed outline-none" />
                       </div>
                       <div>
+                         <label className="block text-xs font-bold text-slate-700 mb-1">Automatic Inactivity Session Timeout</label>
+                         <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <Clock className="w-4 h-4 text-amber-600" />
+                              <div>
+                                <span className="text-xs font-bold text-slate-800">Auto-Logout Timer: 2 Minutes</span>
+                                <p className="text-[10px] text-slate-500">Users inactive for 2 minutes are automatically signed out to login screen.</p>
+                              </div>
+                            </div>
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              Active (2 min)
+                            </span>
+                         </div>
+                      </div>
+                      <div>
                          <label className="block text-xs font-bold text-slate-700 mb-1">Admin Approval Notifications</label>
                          <div className="flex items-center gap-2 mt-2">
                              <input type="checkbox" defaultChecked className="rounded border-slate-300 text-indigo-600" />
                              <span className="text-xs text-slate-600">Notify Admin when a staff member submits details (Pending status)</span>
+                         </div>
+                      </div>
+                      <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                         <div className="text-xs font-bold text-slate-800 mb-1 flex items-center gap-1.5">
+                           <Crown className="w-3.5 h-3.5 text-amber-500" /> Administrative Access Levels
+                         </div>
+                         <div className="text-[11px] text-slate-600 space-y-1">
+                           <div>• <strong>Super Admin:</strong> Full master authority over all features, role assignments, news, and critical data management.</div>
+                           <div>• <strong>Co-Admin:</strong> Authorized access to Dashboard, Directory, Approvals, Staff Details entry, and announcements.</div>
                          </div>
                       </div>
                       <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-end gap-3">
@@ -3779,10 +3903,10 @@ export default function App() {
                   {/* Appointment Form */}
                   <div className="p-5 bg-gradient-to-br from-amber-50/80 to-purple-50/50 rounded-2xl border border-amber-200/80 shadow-xs">
                     <h4 className="text-xs font-black uppercase tracking-wider text-amber-900 mb-2 flex items-center gap-2">
-                      <UserPlus className="w-4 h-4 text-amber-700" /> Appoint New Co-Admin or Admin
+                      <UserPlus className="w-4 h-4 text-amber-700" /> Appoint New Super Admin or Co-Admin
                     </h4>
                     <p className="text-xs text-slate-600 mb-4 leading-relaxed">
-                      Co-Admins and Admins have one simple and strictly scoped responsibility: they can only add other people's details on the website. All submissions are queued for Super Admin review.
+                      Super Admins gain unrestricted access to every single feature on the website (including database wipe and appointing administrators). Co-Admins gain access to administrative functions (Dashboard, Staff Directory, Approvals, News, and Staff Entry).
                     </p>
 
                     <div className="flex flex-col sm:flex-row gap-2.5">
@@ -3795,11 +3919,11 @@ export default function App() {
                       />
                       <select 
                         value={newAdminRole}
-                        onChange={(e) => setNewAdminRole(e.target.value as 'co_admin' | 'admin')}
+                        onChange={(e) => setNewAdminRole(e.target.value as 'super_admin' | 'co_admin')}
                         className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-amber-400 outline-none"
                       >
-                        <option value="co_admin">Co-Admin (Can add staff details)</option>
-                        <option value="admin">Admin (Can add staff details)</option>
+                        <option value="super_admin">Super Admin (Access to everything)</option>
+                        <option value="co_admin">Co-Admin (Access to admin functions)</option>
                       </select>
                       <button
                         type="button"
@@ -3810,7 +3934,7 @@ export default function App() {
                         {isAssigningAdmin ? (
                           <Loader2 className="w-4 h-4 animate-spin text-slate-900" />
                         ) : (
-                          <ShieldCheck className="w-4 h-4 text-slate-900" />
+                          <Crown className="w-4 h-4 text-slate-900" />
                         )}
                         Appoint Role
                       </button>
@@ -3848,53 +3972,62 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Appointed Co-Admins & Admins List */}
+                  {/* Appointed Super Admins & Co-Admins List */}
                   <div>
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-purple-600" /> Appointed Co-Admins & Admins ({adminList.length})
+                        <ShieldCheck className="w-4 h-4 text-purple-600" /> Appointed Administrators ({adminList.length})
                       </h4>
-                      <span className="text-[10px] text-slate-400 font-medium">Limited to Adding Staff Details</span>
+                      <span className="text-[10px] text-slate-400 font-medium">Active Roles</span>
                     </div>
 
                     {adminList.length === 0 ? (
                       <div className="p-6 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400">
-                        No additional Co-Admins or Admins have been appointed yet. Use the form above to grant staff registration permissions to other users.
+                        No additional Super Admins or Co-Admins have been appointed yet. Use the form above to grant administrator access.
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        {adminList.map((adm) => (
-                          <div 
-                            key={adm.id || adm.email}
-                            className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 shadow-xs"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-800 flex items-center justify-center font-bold text-xs shrink-0">
-                                <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="text-xs font-bold text-slate-800 truncate">{adm.email}</div>
-                                <div className="text-[10px] text-slate-400">
-                                  Assigned by {adm.assignedBy || 'Super Admin'} {adm.assignedAt?.toDate ? `• ${adm.assignedAt.toDate().toLocaleDateString()}` : ''}
+                        {adminList.map((adm) => {
+                          const isSuper = adm.role === 'super_admin';
+                          return (
+                            <div 
+                              key={adm.id || adm.email}
+                              className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 shadow-xs"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                                  isSuper ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'
+                                }`}>
+                                  {isSuper ? <Crown className="w-3.5 h-3.5 text-amber-600" /> : <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-xs font-bold text-slate-800 truncate">{adm.email}</div>
+                                  <div className="text-[10px] text-slate-400">
+                                    Assigned by {adm.assignedBy || 'Super Admin'} {adm.assignedAt?.toDate ? `• ${adm.assignedAt.toDate().toLocaleDateString()}` : ''}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-200">
-                                {adm.role === 'admin' ? 'Admin' : 'Co-Admin'}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleRevokeAdmin(adm.email)}
-                                className="text-rose-600 hover:text-rose-800 hover:bg-rose-50 p-1.5 rounded-lg border border-rose-200 text-xs font-bold transition-all"
-                                title="Revoke permissions"
-                              >
-                                Revoke
-                              </button>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                                  isSuper 
+                                    ? 'bg-amber-100 text-amber-900 border border-amber-300 font-black' 
+                                    : 'bg-purple-100 text-purple-900 border border-purple-200'
+                                }`}>
+                                  {isSuper ? 'Super Admin' : 'Co-Admin'}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRevokeAdmin(adm.email)}
+                                  className="text-rose-600 hover:text-rose-800 hover:bg-rose-50 p-1.5 rounded-lg border border-rose-200 text-xs font-bold transition-all"
+                                  title="Revoke permissions"
+                                >
+                                  Revoke
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -3910,6 +4043,44 @@ export default function App() {
                     Close
                   </button>
                 </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* 2-MINUTE INACTIVITY WARNING COUNTDOWN MODAL */}
+        <AnimatePresence>
+          {showInactivityWarning && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm"
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl border border-amber-300 text-center relative overflow-hidden"
+              >
+                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center border border-amber-300 shadow-sm animate-pulse">
+                  <Clock className="w-8 h-8" />
+                </div>
+                <h3 className="text-base font-bold text-slate-900 mb-1">Inactivity Timeout Warning</h3>
+                <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+                  You have been inactive. For your account security, you will be automatically logged out in:
+                </p>
+                <div className="text-4xl font-black text-amber-600 font-mono mb-5 flex items-baseline justify-center gap-1.5">
+                  <span>{inactivityCountdown}</span>
+                  <span className="text-xs font-bold uppercase text-slate-400">seconds</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleResetActivity}
+                  className="w-full bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-xl text-xs shadow-lg shadow-indigo-600/30 transition-all cursor-pointer"
+                >
+                  I'm Still Here (Stay Logged In)
+                </button>
               </motion.div>
             </motion.div>
           )}
