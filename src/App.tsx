@@ -5,7 +5,7 @@ import {
   CheckCircle, Clock, Check, ChevronRight, LogIn, UserPlus, Upload, Volume2, VolumeX, 
   Image as ImageIcon, X, User as UserIcon, Edit3, ShieldAlert, FileText, CheckCircle2, 
   XCircle, Filter, Trash2, ExternalLink, AlertTriangle, Eye, RefreshCw, FileSpreadsheet, 
-  Sparkles, CheckSquare, Square, Loader2 
+  Sparkles, CheckSquare, Square, Loader2, Shield, ShieldCheck, Crown, UserCheck 
 } from 'lucide-react';
 import { auth, db } from './firebase';
 import { 
@@ -30,12 +30,31 @@ import {
   inferFacultyFromDepartment 
 } from './data/faculties';
 
+// Designated Super Admin Emails with full master control over every website capability
+export const SUPER_ADMIN_EMAILS = [
+  'brossj15@gmail.com',
+  'ogunbadekehinde19@gmail.com',
+  'ogungbadekehinde19@gmail.com',
+  'brossj50@gmail.com'
+];
+
+export const isSuperAdminEmail = (email?: string | null) => {
+  if (!email) return false;
+  return SUPER_ADMIN_EMAILS.includes(email.toLowerCase().trim());
+};
+
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   const [loading, setLoading] = useState(true);
   const [staffList, setStaffList] = useState<any[]>([]);
   const [isAdminRole, setIsAdminRole] = useState(false);
+  const [isCoAdminRole, setIsCoAdminRole] = useState(false);
+  const [adminList, setAdminList] = useState<any[]>([]);
+  const [showAdminManagementModal, setShowAdminManagementModal] = useState(false);
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminRole, setNewAdminRole] = useState<'co_admin' | 'admin'>('co_admin');
+  const [isAssigningAdmin, setIsAssigningAdmin] = useState(false);
   const [isEditingMyDetails, setIsEditingMyDetails] = useState(false);
   const [activeView, setActiveView] = useState('entry');
   
@@ -110,8 +129,15 @@ export default function App() {
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  const isSuperAdmin = user?.email?.toLowerCase() === 'brossj50@gmail.com' || user?.email?.toLowerCase() === 'ogungbadekehinde19@gmail.com';
-  const isAdmin = isSuperAdmin || isAdminRole;
+  // Super Admin: Has full, unfettered access to EVERY function on the website
+  const userEmailLower = user?.email?.toLowerCase().trim() || '';
+  const isSuperAdmin = isSuperAdminEmail(userEmailLower);
+
+  // Co-Admin / Admin: "The work of the co-admin or just admin is simple: they can only add other people's details on the website."
+  const isCoAdmin = isSuperAdmin || isCoAdminRole;
+  
+  // Full management view permissions (Dashboard, Directory, Approvals, Deletions, Roster Upload, Settings) are strictly Super Admin
+  const isAdmin = isSuperAdmin;
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ message, type });
@@ -125,7 +151,7 @@ export default function App() {
       setUser(currentUser);
       setLoading(false);
       if (currentUser) {
-        const isSuper = currentUser.email?.toLowerCase() === 'brossj50@gmail.com' || currentUser.email?.toLowerCase() === 'ogungbadekehinde19@gmail.com';
+        const isSuper = isSuperAdminEmail(currentUser.email);
         if (isSuper) {
           setActiveView('dashboard');
         } else {
@@ -173,41 +199,48 @@ export default function App() {
       const emails = [user.email, user.email?.toLowerCase()].filter(Boolean) as string[];
       const uniqueEmails = Array.from(new Set(emails));
       const qMyStaff = query(collection(db, 'staff'), where('email', 'in', uniqueEmails));
-      let unsubAllStaff: (() => void) | null = null;
 
       const unsubMyStaff = onSnapshot(
         qMyStaff,
         (snapshot) => {
           const myDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          const hasAdminRole = myDocs.some((d: any) => d.role === 'admin');
-          setIsAdminRole(hasAdminRole);
-
-          if (hasAdminRole) {
-            // Promoted admin: load full collection
-            if (!unsubAllStaff) {
-              const qAll = query(collection(db, 'staff'), orderBy('createdAt', 'desc'));
-              unsubAllStaff = onSnapshot(
-                qAll,
-                (allSnap) => {
-                  setStaffList(allSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-                },
-                (err) => console.warn("Appointed admin staff listener error:", err)
-              );
-            }
-          } else {
-            // Regular user: ONLY their own document is present in state
-            setStaffList(myDocs);
+          const hasCoAdminRole = myDocs.some((d: any) => d.role === 'admin' || d.role === 'co_admin');
+          if (hasCoAdminRole) {
+            setIsCoAdminRole(true);
           }
+          // Co-Admin / regular user ONLY gets their own document
+          setStaffList(myDocs);
         },
         (err) => console.warn("User staff record listener notice:", err)
       );
 
-      return () => {
-        unsubMyStaff();
-        if (unsubAllStaff) unsubAllStaff();
-      };
+      return () => unsubMyStaff();
     }
   }, [user, isSuperAdmin]);
+
+  // Listen to appointed admins collection (for co-admins and admins)
+  useEffect(() => {
+    if (!user) {
+      setAdminList([]);
+      setIsCoAdminRole(false);
+      return;
+    }
+    const qAdmins = collection(db, 'admins');
+    const unsub = onSnapshot(
+      qAdmins,
+      (snapshot) => {
+        const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setAdminList(list);
+        const myEmail = user.email?.toLowerCase().trim() || '';
+        const matchingDoc = list.find((a: any) => a.email?.toLowerCase().trim() === myEmail);
+        if (matchingDoc) {
+          setIsCoAdminRole(true);
+        }
+      },
+      (err) => console.warn("Admins collection listener notice:", err)
+    );
+    return () => unsub();
+  }, [user]);
 
   // Messages and News subscriptions
   useEffect(() => {
@@ -241,12 +274,12 @@ export default function App() {
     };
   }, [user, isGuest]);
 
-  // Route security: redirect non-admin away from admin-only views
+  // Route security: strictly redirect non-superadmin away from super-admin-only views (Dashboard, Directory, Settings)
   useEffect(() => {
-    if (!isAdmin && (activeView === 'dashboard' || activeView === 'directory')) {
+    if (!isSuperAdmin && (activeView === 'dashboard' || activeView === 'directory' || activeView === 'settings')) {
       setActiveView('entry');
     }
-  }, [isAdmin, activeView]);
+  }, [isSuperAdmin, activeView]);
 
   useEffect(() => {
     if (activeView === 'news') {
@@ -406,6 +439,10 @@ export default function App() {
   };
 
   const handleDeleteMessage = async (msgId: string) => {
+    if (!isSuperAdmin) {
+      showToast("Only Super Admins can delete messages.", "error");
+      return;
+    }
     if (!window.confirm("Are you sure you want to delete this message?")) return;
     try {
       await deleteDoc(doc(db, 'messages', msgId));
@@ -415,25 +452,110 @@ export default function App() {
     }
   };
 
-  const handleRemoveAdmin = async (staffId: string) => {
+  // SUPER ADMIN ACTION: Appoint a Co-Admin or Admin by email
+  const handleAppointAdmin = async (targetEmail: string, roleType: 'co_admin' | 'admin') => {
+    if (!isSuperAdmin) {
+      showToast("Only Super Admins can appoint admins.", "error");
+      return;
+    }
+    const cleanEmail = targetEmail.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      showToast("Please enter a valid email address.", "error");
+      return;
+    }
+    if (isSuperAdminEmail(cleanEmail)) {
+      showToast("This email is already a permanent Super Admin.", "info");
+      return;
+    }
+    setIsAssigningAdmin(true);
     try {
-      await updateDoc(doc(db, 'staff', staffId), { role: 'user' });
-      showToast("Admin privileges revoked.", "info");
-    } catch(err) {
-      console.error(err);
+      // 1. Add to admins collection in Firestore
+      await setDoc(doc(db, 'admins', cleanEmail), {
+        email: cleanEmail,
+        role: roleType,
+        assignedBy: user?.displayName || user?.email || 'Super Admin',
+        assignedAt: serverTimestamp()
+      });
+
+      // 2. Also update in staff collection if existing record matches
+      const matchingStaff = staffList.find(s => s.email?.toLowerCase().trim() === cleanEmail);
+      if (matchingStaff) {
+        await updateDoc(doc(db, 'staff', matchingStaff.id), {
+          role: roleType
+        });
+      }
+
+      showToast(`User ${cleanEmail} has been appointed as ${roleType === 'co_admin' ? 'Co-Admin' : 'Admin'}!`, "success");
+      setNewAdminEmail('');
+    } catch (err: any) {
+      console.error("Error appointing admin:", err);
+      showToast("Failed to appoint admin: " + (err.message || 'Error'), "error");
+    } finally {
+      setIsAssigningAdmin(false);
     }
   };
 
-  const handleMakeAdmin = async (staffId: string) => {
+  // SUPER ADMIN ACTION: Revoke admin or co-admin role
+  const handleRevokeAdmin = async (targetEmail: string, staffId?: string) => {
+    if (!isSuperAdmin) {
+      showToast("Only Super Admins can revoke admin access.", "error");
+      return;
+    }
+    const cleanEmail = targetEmail.trim().toLowerCase();
+    if (isSuperAdminEmail(cleanEmail)) {
+      showToast("Super Admin roles cannot be revoked.", "error");
+      return;
+    }
+    if (!window.confirm(`Are you sure you want to revoke admin privileges for ${targetEmail}?`)) return;
+
     try {
-      await updateDoc(doc(db, 'staff', staffId), { role: 'admin' });
-      showToast("Staff promoted to Admin.", "success");
-    } catch(err) {
+      // 1. Remove from admins collection
+      await deleteDoc(doc(db, 'admins', cleanEmail));
+
+      // 2. Also update staff document if available or found
+      if (staffId) {
+        await updateDoc(doc(db, 'staff', staffId), { role: 'user' });
+      } else {
+        const matchingStaff = staffList.find(s => s.email?.toLowerCase().trim() === cleanEmail);
+        if (matchingStaff) {
+          await updateDoc(doc(db, 'staff', matchingStaff.id), { role: 'user' });
+        }
+      }
+
+      showToast(`Admin privileges revoked for ${cleanEmail}.`, "info");
+    } catch (err: any) {
+      console.error("Error revoking admin:", err);
+      showToast("Failed to revoke admin: " + (err.message || 'Error'), "error");
+    }
+  };
+
+  const handleMakeAdmin = async (staffId: string, staffEmail?: string, roleType: 'co_admin' | 'admin' = 'co_admin') => {
+    if (!isSuperAdmin) {
+      showToast("Only Super Admins can promote staff to Co-Admin / Admin.", "error");
+      return;
+    }
+    try {
+      await updateDoc(doc(db, 'staff', staffId), { role: roleType });
+      if (staffEmail) {
+        await setDoc(doc(db, 'admins', staffEmail.toLowerCase().trim()), {
+          email: staffEmail.toLowerCase().trim(),
+          role: roleType,
+          assignedBy: user?.displayName || user?.email || 'Super Admin',
+          assignedAt: serverTimestamp()
+        });
+      }
+      showToast(`Staff member appointed as ${roleType === 'co_admin' ? 'Co-Admin' : 'Admin'}!`, "success");
+    } catch(err: any) {
       console.error(err);
+      showToast("Failed to assign role: " + (err.message || 'Error'), "error");
     }
   };
 
   const handleDeleteStaff = async (staffId: string) => {
+    if (!isSuperAdmin) {
+      showToast("Only Super Admins can delete staff records.", "error");
+      return;
+    }
     if (!window.confirm("Are you sure you want to permanently delete this staff record?")) return;
     try {
       await deleteDoc(doc(db, 'staff', staffId));
@@ -445,8 +567,12 @@ export default function App() {
     }
   };
 
-  // ADMIN ACTION: DELETE ALL DETAILS FROM WEBSITE
+  // ADMIN ACTION: DELETE ALL DETAILS FROM WEBSITE (Super Admin Only)
   const handleDeleteAllDetails = async () => {
+    if (!isSuperAdmin) {
+      showToast("Only Super Admins can delete all website details.", "error");
+      return;
+    }
     setIsDeletingAll(true);
     setDeleteProgress({ current: 0, total: Math.max(staffList.length, 1) });
 
@@ -677,7 +803,8 @@ export default function App() {
 
   useEffect(() => {
     if (activeView === 'entry') {
-      if (!isAdmin && user?.email) {
+      // Only prefill for regular staff who are editing/viewing their own profile
+      if (!isSuperAdmin && !isCoAdmin && user?.email) {
         if (myStaffRecord) {
           setEntryName(myStaffRecord.name || '');
           setEntryEmail(myStaffRecord.email || user.email || '');
@@ -698,7 +825,7 @@ export default function App() {
         }
       }
     }
-  }, [activeView, isAdmin, user, myStaffRecord]);
+  }, [activeView, isSuperAdmin, isCoAdmin, user, myStaffRecord]);
 
   // Robust Photo Upload Handler: Smart canvas downscaling to ensure compact base64 (~40KB)
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -778,7 +905,8 @@ export default function App() {
 
   // Submit / Save Staff Details Handler
   const handleManualEntry = async () => {
-    const finalEmail = (!isAdmin && user?.email) 
+    const isAddingOtherPerson = isSuperAdmin || isCoAdmin;
+    const finalEmail = (!isAddingOtherPerson && user?.email) 
       ? user.email.toLowerCase().trim() 
       : (entryEmail.trim().toLowerCase() || user?.email?.toLowerCase() || '');
 
@@ -803,12 +931,13 @@ export default function App() {
         cvUrl: entryDocumentUrl || '',
         documentName: entryDocumentName || '',
         documentSize: entryDocumentSize || '',
-        userId: user?.uid || '',
+        userId: (!isAddingOtherPerson && user?.uid) ? user.uid : '',
+        registeredBy: user?.displayName || user?.email || (isSuperAdmin ? 'Super Admin' : 'Co-Admin')
       };
 
-      if (!isAdmin && user?.email) {
+      if (!isAddingOtherPerson && user?.email) {
         if (myStaffRecord) {
-          // When a staff member updates their record, ALWAYS send to admin as 'Pending'
+          // Regular staff member updating their own record
           await updateDoc(doc(db, 'staff', myStaffRecord.id), {
             ...staffData,
             status: 'Pending',
@@ -817,15 +946,15 @@ export default function App() {
             updatedAt: serverTimestamp()
           });
           setIsEditingMyDetails(false);
-          showToast("Your data has been sent to the Admin! Status is now PENDING review.", "success");
+          showToast("Your details have been updated and sent to the Admin! Status is now PENDING review.", "success");
           return;
         }
       }
 
       // New entry:
-      // If submitted by regular staff member, it is ALWAYS 'Pending'
-      // If registered by Admin, admin can choose 'Approved' or 'Pending'
-      const initialStatus = isAdmin ? adminEntryAction : 'Pending';
+      // If Super Admin, they can choose adminEntryAction ('Approved' | 'Pending')
+      // If Co-Admin / Admin, it is strictly 'Pending' for Super Admin to review!
+      const initialStatus = isSuperAdmin ? adminEntryAction : 'Pending';
 
       await addDoc(collection(db, 'staff'), {
         ...staffData,
@@ -836,11 +965,15 @@ export default function App() {
         createdAt: serverTimestamp(),
       });
       
-      if (!isAdmin) {
+      if (!isAddingOtherPerson) {
         setIsEditingMyDetails(false);
         showToast("Your data has been submitted and sent to the admin. Status: PENDING review.", "success");
       } else {
-        showToast(`Staff member registered with status: ${initialStatus}!`, "success");
+        if (isSuperAdmin) {
+          showToast(`Staff member registered with status: ${initialStatus}!`, "success");
+        } else {
+          showToast(`Staff member details registered successfully and sent to Super Admin for approval!`, "success");
+        }
         setEntryName('');
         setEntryEmail('');
         setEntryFaculty('');
@@ -1309,7 +1442,7 @@ export default function App() {
         </div>
         <div className="flex-1 py-4">
           <div className="px-4 mb-2 text-[10px] uppercase font-bold text-slate-500 tracking-wider">Main Navigation</div>
-          {isAdmin ? (
+          {isSuperAdmin ? (
             <>
               <button onClick={() => setActiveView('dashboard')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'dashboard' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
                 <LayoutDashboard className="w-4 h-4" /> Dashboard
@@ -1325,7 +1458,17 @@ export default function App() {
               <button onClick={() => setActiveView('entry')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'entry' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
                 <UserPlus className="w-4 h-4" /> Add Staff Member
               </button>
+              <button onClick={() => setShowAdminManagementModal(true)} className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 text-amber-300 hover:text-white hover:bg-white/5 border-r-4 border-transparent">
+                <Crown className="w-4 h-4 text-amber-400" /> Manage Admins
+              </button>
             </>
+          ) : isCoAdmin ? (
+            <button onClick={() => setActiveView('entry')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'entry' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
+              <UserPlus className="w-4 h-4" /> Add Staff Details
+              <span className="ml-auto bg-purple-500/30 text-purple-200 border border-purple-400/30 text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                Co-Admin
+              </span>
+            </button>
           ) : (
             <button onClick={() => setActiveView('entry')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'entry' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
               <UserIcon className="w-4 h-4" /> My Staff Profile
@@ -1359,10 +1502,14 @@ export default function App() {
             <MessageSquare className="w-4 h-4" /> Messages
             <span className="ml-auto bg-red-500 text-[10px] px-1.5 rounded-full text-white font-bold">4</span>
           </button>
-          <div className="px-4 mt-6 mb-2 text-[10px] uppercase font-bold text-slate-500 tracking-wider">System</div>
-          <button onClick={() => setActiveView('settings')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'settings' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
-            <Settings className="w-4 h-4" /> Settings
-          </button>
+          {isSuperAdmin && (
+            <>
+              <div className="px-4 mt-6 mb-2 text-[10px] uppercase font-bold text-slate-500 tracking-wider">System</div>
+              <button onClick={() => setActiveView('settings')} className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-all duration-300 ${activeView === 'settings' ? 'text-indigo-300 bg-white/10 border-r-4 border-indigo-400 shadow-[inset_4px_0_12px_rgba(255,255,255,0.05)]' : 'text-slate-400 hover:text-white border-r-4 border-transparent'}`}>
+                <Settings className="w-4 h-4" /> Settings
+              </button>
+            </>
+          )}
         </div>
         <div className="p-4 mt-auto border-t border-white/10 bg-slate-900/40 backdrop-blur-md">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => {
@@ -1380,8 +1527,14 @@ export default function App() {
               )}
             </div>
             <div className="flex-1 overflow-hidden">
-              <div className="text-xs font-medium text-white truncate">{user?.displayName || (user ? 'User' : 'Guest')}</div>
-              <div className="text-[10px] text-slate-500 truncate">{user?.email || 'Not signed in'}</div>
+              <div className="text-xs font-medium text-white truncate flex items-center gap-1">
+                <span>{user?.displayName || (user ? 'User' : 'Guest')}</span>
+                {isSuperAdmin && <Crown className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+                {isCoAdmin && !isSuperAdmin && <ShieldCheck className="w-3.5 h-3.5 text-purple-400 shrink-0" />}
+              </div>
+              <div className="text-[10px] text-slate-400 truncate">
+                {isSuperAdmin ? 'Super Admin' : (isCoAdmin ? 'Co-Admin (Can Add Staff)' : (user?.email || 'Not signed in'))}
+              </div>
             </div>
           </div>
         </div>
@@ -1393,13 +1546,13 @@ export default function App() {
           <h1 className="text-lg font-bold text-slate-800">
             {activeView === 'dashboard' && 'Analytics Dashboard'}
             {activeView === 'directory' && 'Staff Directory & Approvals'}
-            {activeView === 'entry' && (isAdmin ? 'Staff Management Entry' : 'My Staff Profile')}
+            {activeView === 'entry' && (isSuperAdmin ? 'Staff Management Entry (Super Admin)' : (isCoAdmin ? 'Staff Details Registration (Co-Admin)' : (myStaffRecord && !isEditingMyDetails ? 'My Staff Profile' : 'Staff Profile Registration')))}
             {activeView === 'news' && 'News Feed'}
             {activeView === 'messages' && 'Messages & Chat'}
             {activeView === 'settings' && 'System Settings'}
           </h1>
           <div className="flex items-center gap-4">
-            {isAdmin && (
+            {isSuperAdmin && (
               <>
                 <div className="relative">
                   <input 
@@ -1412,6 +1565,13 @@ export default function App() {
                   <Search className="w-4 h-4 absolute left-3 top-2 text-indigo-400" />
                 </div>
                 <div className="flex gap-2">
+                  <button 
+                    onClick={() => setShowAdminManagementModal(true)} 
+                    className="bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-slate-900 shadow-[0_4px_12px_rgba(245,158,11,0.3)] hover:-translate-y-0.5 text-xs font-bold py-1.5 px-3 rounded-full transition-all duration-300 flex items-center gap-1.5"
+                    title="Manage Co-Admins and System Admins"
+                  >
+                    <Crown className="w-3.5 h-3.5 text-slate-900" /> Manage Admins
+                  </button>
                   <button onClick={handleExportPDF} className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white shadow-[0_4px_12px_rgba(225,29,72,0.3)] hover:-translate-y-0.5 text-xs font-bold py-1.5 px-3 rounded-full transition-all duration-300 flex items-center gap-1.5">
                     <Download className="w-3.5 h-3.5" /> PDF
                   </button>
@@ -1846,6 +2006,13 @@ export default function App() {
                       <p className="text-[11px] text-slate-500">Filter and process pending applications, approve or reject records.</p>
                     </div>
                     <div className="flex items-center gap-2">
+                       <button 
+                         onClick={() => setShowAdminManagementModal(true)} 
+                         className="bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs font-bold py-1 px-2.5 rounded-lg flex items-center gap-1 shadow-sm transition-all"
+                         title="Manage Co-Admins and System Admins"
+                       >
+                         <Crown className="w-3 h-3 text-slate-900"/> Manage Admins
+                       </button>
                        <button onClick={handleExportPDF} className="bg-red-500 hover:bg-red-600 text-white text-xs font-bold py-1 px-2.5 rounded-lg flex items-center gap-1">
                          <Download className="w-3 h-3"/> PDF
                        </button>
@@ -1963,6 +2130,7 @@ export default function App() {
                     <thead className="bg-white/40 backdrop-blur-sm text-[10px] font-bold text-indigo-900 uppercase border-b border-white/40">
                       <tr>
                         <th className="px-5 py-3 whitespace-nowrap">Staff Member</th>
+                        <th className="px-5 py-3 whitespace-nowrap">System Role</th>
                         <th className="px-5 py-3 whitespace-nowrap">Department & Faculty</th>
                         <th className="px-5 py-3 whitespace-nowrap">Rank & Qualification</th>
                         <th className="px-5 py-3 whitespace-nowrap">Date Employed</th>
@@ -1974,7 +2142,7 @@ export default function App() {
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredStaffList.length === 0 ? (
-                         <tr><td colSpan={8} className="px-5 py-6 text-center text-xs text-slate-500 font-medium">No staff records match filter "{statusFilter}".</td></tr>
+                         <tr><td colSpan={9} className="px-5 py-6 text-center text-xs text-slate-500 font-medium">No staff records match filter "{statusFilter}".</td></tr>
                       ) : (
                         filteredStaffList.map((staff) => (
                         <tr key={staff.id} className="text-xs hover:bg-white/40 transition-colors">
@@ -1990,6 +2158,21 @@ export default function App() {
                               <div className="font-semibold text-slate-900 truncate">{staff.name}</div>
                               <div className="text-[10px] text-slate-500 truncate">{staff.email || 'No email'}</div>
                             </div>
+                          </td>
+                          <td className="px-5 py-2.5 whitespace-nowrap">
+                            {isSuperAdminEmail(staff.email) ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-xs">
+                                <Crown className="w-3 h-3 text-amber-600" /> Super Admin
+                              </span>
+                            ) : (staff.role === 'admin' || staff.role === 'co_admin' || adminList.some(a => a.email?.toLowerCase().trim() === staff.email?.toLowerCase().trim())) ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-300 shadow-xs" title="Authorized to register other staff details">
+                                <ShieldCheck className="w-3 h-3 text-purple-600" /> {staff.role === 'admin' ? 'Admin' : 'Co-Admin'}
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                                Staff
+                              </span>
+                            )}
                           </td>
                           <td className="px-5 py-2.5 whitespace-nowrap">
                             <div className="font-medium text-slate-800">{staff.department || 'N/A'}</div>
@@ -2046,8 +2229,8 @@ export default function App() {
                               Review
                             </button>
 
-                            {/* Prominent Approve & Reject Buttons */}
-                            {isAdmin && (
+                            {/* Prominent Approve & Reject Buttons (Super Admin Only) */}
+                            {isSuperAdmin && (
                               <>
                                 {getNormalizedStatus(staff) !== 'Approved' && (
                                   <button 
@@ -2070,13 +2253,35 @@ export default function App() {
                                     Reject
                                   </button>
                                 )}
-                                {isSuperAdmin && staff.role !== "admin" && (
-                                  <button onClick={() => handleMakeAdmin(staff.id)} className="text-slate-600 hover:text-slate-900 font-bold px-2 py-1 ml-1 border border-slate-300 rounded text-[10px]">Make Admin</button>
+                                {!isSuperAdminEmail(staff.email) && (
+                                  (staff.role === "admin" || staff.role === "co_admin" || adminList.some(a => a.email?.toLowerCase().trim() === staff.email?.toLowerCase().trim())) ? (
+                                    <button 
+                                      onClick={() => handleRevokeAdmin(staff.email, staff.id)} 
+                                      className="text-amber-700 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 font-bold px-2 py-1 ml-1 border border-amber-300 rounded-lg text-[10px] transition-all"
+                                      title="Revoke Admin access"
+                                    >
+                                      Revoke Admin
+                                    </button>
+                                  ) : (
+                                    <>
+                                      <button 
+                                        onClick={() => handleMakeAdmin(staff.id, staff.email, 'co_admin')} 
+                                        className="text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 font-bold px-2 py-1 ml-1 border border-purple-300 rounded-lg text-[10px] transition-all"
+                                        title="Grant Co-Admin permission to add other staff details"
+                                      >
+                                        + Co-Admin
+                                      </button>
+                                      <button 
+                                        onClick={() => handleMakeAdmin(staff.id, staff.email, 'admin')} 
+                                        className="text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 font-bold px-2 py-1 ml-1 border border-blue-300 rounded-lg text-[10px] transition-all"
+                                        title="Grant Admin permission to add other staff details"
+                                      >
+                                        + Admin
+                                      </button>
+                                    </>
+                                  )
                                 )}
-                                {isSuperAdmin && staff.role === "admin" && staff.email !== user?.email && (
-                                  <button onClick={() => handleRemoveAdmin(staff.id)} className="text-amber-600 hover:text-amber-800 font-bold px-2 py-1 ml-1 border border-amber-200 rounded text-[10px]">Remove Admin</button>
-                                )}
-                                <button onClick={() => handleDeleteStaff(staff.id)} className="text-red-500 hover:text-red-700 font-bold px-2 py-1 ml-1 text-[10px] border border-red-200 rounded uppercase">Delete</button>
+                                <button onClick={() => handleDeleteStaff(staff.id)} className="text-red-600 hover:text-red-800 hover:bg-red-50 font-bold px-2 py-1 ml-1 text-[10px] border border-red-200 rounded-lg uppercase transition-all">Delete</button>
                               </>
                             )}
                           </td>
@@ -2106,17 +2311,23 @@ export default function App() {
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h2 className="text-lg font-bold text-slate-800">
-                      {isAdmin ? 'Staff Management Entry' : (myStaffRecord && !isEditingMyDetails ? 'My Staff Profile' : (isEditingMyDetails ? 'Edit My Details' : 'Register My Details'))}
+                      {isSuperAdmin 
+                        ? 'Staff Management Entry' 
+                        : (isCoAdmin 
+                            ? 'Add Staff Member Details (Co-Admin)' 
+                            : (myStaffRecord && !isEditingMyDetails ? 'My Staff Profile' : (isEditingMyDetails ? 'Edit My Details' : 'Register My Details')))}
                     </h2>
                     <p className="text-xs text-slate-500">
-                      {isAdmin 
-                        ? 'Register university staff members or perform bulk CSV uploads.' 
-                        : (myStaffRecord && !isEditingMyDetails 
-                            ? 'Your official submitted record in Abia State University database.' 
-                            : 'Fill in your official employment, credentials, and upload required documents.')}
+                      {isSuperAdmin 
+                        ? 'Register university staff members or perform bulk CSV/PDF uploads.' 
+                        : (isCoAdmin
+                            ? 'Register other staff members to the Abia State University database (queued for Super Admin review).'
+                            : (myStaffRecord && !isEditingMyDetails 
+                                ? 'Your official submitted record in Abia State University database.' 
+                                : 'Fill in your official employment, credentials, and upload required documents.'))}
                     </p>
                   </div>
-                  {!isAdmin && myStaffRecord && !isEditingMyDetails && (
+                  {!isSuperAdmin && !isCoAdmin && myStaffRecord && !isEditingMyDetails && (
                     <button 
                       onClick={() => setIsEditingMyDetails(true)} 
                       className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-4 rounded-xl shadow-md transition-all flex items-center gap-1.5"
@@ -2126,12 +2337,28 @@ export default function App() {
                   )}
                 </div>
                 
-                {/* ADMIN MANUAL ENTRY FORM */}
-                {isAdmin ? (
+                {/* ADMIN & CO-ADMIN ENTRY FORM */}
+                {(isSuperAdmin || isCoAdmin) ? (
                    <div className="space-y-8">
+                      {isCoAdmin && !isSuperAdmin && (
+                        <div className="p-4 rounded-2xl bg-purple-50/90 border border-purple-200 text-purple-950 flex items-start gap-3 shadow-xs">
+                          <div className="p-2 rounded-xl bg-purple-100 text-purple-700 shrink-0">
+                            <ShieldCheck className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-xs font-bold uppercase tracking-wide text-purple-900 flex items-center gap-1.5">
+                              Co-Admin Access Active
+                            </div>
+                            <p className="text-xs text-purple-800/90 mt-0.5 leading-relaxed">
+                              You have been appointed as a Co-Admin. Your administrative role is to add other people's details to the Abia State University database. Each record you submit will be stored with <strong>Pending</strong> status for Super Admin review and verification.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="border-b border-slate-200 pb-8">
                          <h3 className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
-                           <UserPlus className="w-4 h-4 text-indigo-600" /> Manual Staff Registration
+                           <UserPlus className="w-4 h-4 text-indigo-600" /> {isSuperAdmin ? "Manual Staff Registration" : "Enter Staff Member Details"}
                          </h3>
                          <div className="space-y-4">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2278,97 +2505,101 @@ export default function App() {
                                )}
                             </div>
 
-                            {/* Registration Initial Status Option */}
-                            <div className="p-3 bg-slate-50/70 rounded-xl border border-slate-200 flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-700">Initial Approval Status:</span>
-                              <div className="flex items-center gap-2">
-                                <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
-                                  <input 
-                                    type="radio" 
-                                    name="adminAction" 
-                                    value="Approved" 
-                                    checked={adminEntryAction === 'Approved'} 
-                                    onChange={() => setAdminEntryAction('Approved')} 
-                                    className="text-emerald-600"
-                                  />
-                                  <span className="text-emerald-700">Approve Immediately</span>
-                                </label>
-                                <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer ml-3">
-                                  <input 
-                                    type="radio" 
-                                    name="adminAction" 
-                                    value="Pending" 
-                                    checked={adminEntryAction === 'Pending'} 
-                                    onChange={() => setAdminEntryAction('Pending')} 
-                                    className="text-amber-600"
-                                  />
-                                  <span className="text-amber-700">Save as Pending</span>
-                                </label>
+                            {/* Registration Initial Status Option (Super Admin Only) */}
+                            {isSuperAdmin && (
+                              <div className="p-3 bg-slate-50/70 rounded-xl border border-slate-200 flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-700">Initial Approval Status:</span>
+                                <div className="flex items-center gap-2">
+                                  <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
+                                    <input 
+                                      type="radio" 
+                                      name="adminAction" 
+                                      value="Approved" 
+                                      checked={adminEntryAction === 'Approved'} 
+                                      onChange={() => setAdminEntryAction('Approved')} 
+                                      className="text-emerald-600"
+                                    />
+                                    <span className="text-emerald-700">Approve Immediately</span>
+                                  </label>
+                                  <label className="flex items-center gap-1.5 text-xs font-semibold cursor-pointer ml-3">
+                                    <input 
+                                      type="radio" 
+                                      name="adminAction" 
+                                      value="Pending" 
+                                      checked={adminEntryAction === 'Pending'} 
+                                      onChange={() => setAdminEntryAction('Pending')} 
+                                      className="text-amber-600"
+                                    />
+                                    <span className="text-amber-700">Save as Pending</span>
+                                  </label>
+                                </div>
                               </div>
-                            </div>
+                            )}
 
                             <button 
                               onClick={handleManualEntry} 
                               disabled={!entryName.trim() || !entryEmail.trim() || !entryDept.trim() || !entryFaculty.trim() || !entryRank.trim()} 
                               className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all px-6 py-2.5 rounded-xl text-xs font-bold hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50"
                             >
-                              Add Staff Member
+                              {isSuperAdmin ? "Add Staff Member" : "Submit Staff Details to Database"}
                             </button>
                          </div>
                       </div>
 
-                      {/* Universal Lecturer Roster Upload (PDF & Excel) */}
-                      <div className="pt-2">
-                         <div className="flex items-center justify-between mb-2">
-                            <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                              <Sparkles className="w-4 h-4 text-indigo-600" />
-                              Universal Lecturer Roster Upload (PDF & Excel)
-                            </h3>
-                            {rosterPreviewList.length > 0 && (
-                              <button
-                                onClick={() => setShowRosterModal(true)}
-                                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded-lg border border-indigo-200 transition-colors flex items-center gap-1"
-                              >
-                                View Extracted ({rosterPreviewList.length}) <ChevronRight className="w-3 h-3" />
-                              </button>
-                            )}
-                         </div>
-                         <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-                            Upload a general PDF roster or Excel spreadsheet (<span className="font-mono font-semibold">.xlsx, .xls, .csv</span>). The system will automatically understand and map each lecturer, their faculty, department, rank, status, and credentials.
-                         </p>
-
-                         {isParsingRoster ? (
-                           <div className="p-6 rounded-2xl bg-indigo-50/80 border border-indigo-200 flex flex-col items-center justify-center text-center animate-pulse">
-                              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-2" />
-                              <div className="text-xs font-bold text-indigo-900">{rosterParseMessage}</div>
-                              <div className="text-[10px] text-indigo-600/80 mt-1">Reading and understanding lecturer structure for ABSU...</div>
+                      {/* Universal Lecturer Roster Upload (PDF & Excel - Super Admin Only) */}
+                      {isSuperAdmin && (
+                        <div className="pt-2">
+                           <div className="flex items-center justify-between mb-2">
+                              <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                <Sparkles className="w-4 h-4 text-indigo-600" />
+                                Universal Lecturer Roster Upload (PDF & Excel)
+                              </h3>
+                              {rosterPreviewList.length > 0 && (
+                                <button
+                                  onClick={() => setShowRosterModal(true)}
+                                  className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1 rounded-lg border border-indigo-200 transition-colors flex items-center gap-1"
+                                >
+                                  View Extracted ({rosterPreviewList.length}) <ChevronRight className="w-3 h-3" />
+                                </button>
+                              )}
                            </div>
-                         ) : (
-                           <div className="p-4 bg-white/40 border-2 border-dashed border-indigo-200 hover:border-indigo-400 rounded-2xl transition-all">
-                              <div className="flex flex-col sm:flex-row items-center gap-4">
-                                <div className="p-3 bg-indigo-100 text-indigo-700 rounded-xl shrink-0">
-                                   <FileSpreadsheet className="w-6 h-6" />
-                                </div>
-                                <div className="flex-1 w-full">
-                                  <input 
-                                    type="file" 
-                                    accept=".pdf,.xlsx,.xls,.csv" 
-                                    onChange={handleRosterFileUpload} 
-                                    className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer" 
-                                  />
-                                  <div className="flex flex-wrap items-center gap-2 mt-2">
-                                     <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">PDF Documents</span>
-                                     <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">Excel (.xlsx, .xls)</span>
-                                     <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">CSV</span>
-                                     <span className="text-[10px] text-emerald-700 font-bold ml-auto flex items-center gap-1">
-                                       <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Auto-maps 14 ABSU Faculties
-                                     </span>
+                           <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+                              Upload a general PDF roster or Excel spreadsheet (<span className="font-mono font-semibold">.xlsx, .xls, .csv</span>). The system will automatically understand and map each lecturer, their faculty, department, rank, status, and credentials.
+                           </p>
+
+                           {isParsingRoster ? (
+                             <div className="p-6 rounded-2xl bg-indigo-50/80 border border-indigo-200 flex flex-col items-center justify-center text-center animate-pulse">
+                                <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-2" />
+                                <div className="text-xs font-bold text-indigo-900">{rosterParseMessage}</div>
+                                <div className="text-[10px] text-indigo-600/80 mt-1">Reading and understanding lecturer structure for ABSU...</div>
+                             </div>
+                           ) : (
+                             <div className="p-4 bg-white/40 border-2 border-dashed border-indigo-200 hover:border-indigo-400 rounded-2xl transition-all">
+                                <div className="flex flex-col sm:flex-row items-center gap-4">
+                                  <div className="p-3 bg-indigo-100 text-indigo-700 rounded-xl shrink-0">
+                                     <FileSpreadsheet className="w-6 h-6" />
+                                  </div>
+                                  <div className="flex-1 w-full">
+                                    <input 
+                                      type="file" 
+                                      accept=".pdf,.xlsx,.xls,.csv" 
+                                      onChange={handleRosterFileUpload} 
+                                      className="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer" 
+                                    />
+                                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                                       <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">PDF Documents</span>
+                                       <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">Excel (.xlsx, .xls)</span>
+                                       <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium">CSV</span>
+                                       <span className="text-[10px] text-emerald-700 font-bold ml-auto flex items-center gap-1">
+                                         <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Auto-maps 14 ABSU Faculties
+                                       </span>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                           </div>
-                         )}
-                      </div>
+                             </div>
+                           )}
+                        </div>
+                      )}
                    </div>
                 ) : myStaffRecord && !isEditingMyDetails ? (
                   /* READ-ONLY PROFILE VIEW FOR STAFF MEMBER WITH CLEAR STATUS FEEDBACK */
@@ -3500,6 +3731,185 @@ export default function App() {
                     </button>
                   </div>
                 )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ADMIN & CO-ADMIN MANAGEMENT MODAL (SUPER ADMIN ONLY) */}
+        <AnimatePresence>
+          {showAdminManagementModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm"
+              onClick={() => setShowAdminManagementModal(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                onClick={(e) => e.stopPropagation()}
+                className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-amber-200 overflow-hidden flex flex-col max-h-[90vh]"
+              >
+                {/* Header */}
+                <div className="bg-gradient-to-r from-amber-500/10 via-yellow-500/10 to-indigo-500/10 p-5 border-b border-amber-100 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-2xl bg-amber-100 text-amber-800 border border-amber-200 shadow-sm">
+                      <Crown className="w-6 h-6 text-amber-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900">Manage System Admins & Co-Admins</h3>
+                      <p className="text-xs text-slate-500">
+                        Appoint authorized users who can add other people's details to the website
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowAdminManagementModal(false)}
+                    className="p-2 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-500 hover:text-slate-800 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 overflow-y-auto space-y-6">
+                  {/* Appointment Form */}
+                  <div className="p-5 bg-gradient-to-br from-amber-50/80 to-purple-50/50 rounded-2xl border border-amber-200/80 shadow-xs">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-amber-900 mb-2 flex items-center gap-2">
+                      <UserPlus className="w-4 h-4 text-amber-700" /> Appoint New Co-Admin or Admin
+                    </h4>
+                    <p className="text-xs text-slate-600 mb-4 leading-relaxed">
+                      Co-Admins and Admins have one simple and strictly scoped responsibility: they can only add other people's details on the website. All submissions are queued for Super Admin review.
+                    </p>
+
+                    <div className="flex flex-col sm:flex-row gap-2.5">
+                      <input 
+                        type="email" 
+                        value={newAdminEmail}
+                        onChange={(e) => setNewAdminEmail(e.target.value)}
+                        placeholder="Enter user email (e.g. colleague@gmail.com)"
+                        className="flex-1 px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:ring-2 focus:ring-amber-400 outline-none shadow-inner"
+                      />
+                      <select 
+                        value={newAdminRole}
+                        onChange={(e) => setNewAdminRole(e.target.value as 'co_admin' | 'admin')}
+                        className="px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:ring-2 focus:ring-amber-400 outline-none"
+                      >
+                        <option value="co_admin">Co-Admin (Can add staff details)</option>
+                        <option value="admin">Admin (Can add staff details)</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleAppointAdmin(newAdminEmail, newAdminRole)}
+                        disabled={isAssigningAdmin || !newAdminEmail.trim()}
+                        className="bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 disabled:opacity-50 text-slate-900 font-black text-xs px-5 py-2.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 shrink-0"
+                      >
+                        {isAssigningAdmin ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-slate-900" />
+                        ) : (
+                          <ShieldCheck className="w-4 h-4 text-slate-900" />
+                        )}
+                        Appoint Role
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Designated Permanent Super Admins List */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                        <Crown className="w-4 h-4 text-amber-500" /> Permanent Super Admins ({SUPER_ADMIN_EMAILS.length})
+                      </h4>
+                      <span className="text-[10px] text-slate-400 font-medium">Unrestricted Master Control</span>
+                    </div>
+                    <div className="space-y-2">
+                      {SUPER_ADMIN_EMAILS.map((email) => (
+                        <div 
+                          key={email}
+                          className="flex items-center justify-between p-3 bg-amber-50/50 rounded-xl border border-amber-200/60"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs">
+                              <Crown className="w-3.5 h-3.5 text-amber-600" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-slate-800">{email}</div>
+                              <div className="text-[10px] text-amber-700 font-medium">Full Master Authority & Control</div>
+                            </div>
+                          </div>
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-200 text-amber-900 border border-amber-300">
+                            Permanent Super Admin
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Appointed Co-Admins & Admins List */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-purple-600" /> Appointed Co-Admins & Admins ({adminList.length})
+                      </h4>
+                      <span className="text-[10px] text-slate-400 font-medium">Limited to Adding Staff Details</span>
+                    </div>
+
+                    {adminList.length === 0 ? (
+                      <div className="p-6 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-400">
+                        No additional Co-Admins or Admins have been appointed yet. Use the form above to grant staff registration permissions to other users.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {adminList.map((adm) => (
+                          <div 
+                            key={adm.id || adm.email}
+                            className="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 shadow-xs"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-800 flex items-center justify-center font-bold text-xs shrink-0">
+                                <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold text-slate-800 truncate">{adm.email}</div>
+                                <div className="text-[10px] text-slate-400">
+                                  Assigned by {adm.assignedBy || 'Super Admin'} {adm.assignedAt?.toDate ? `• ${adm.assignedAt.toDate().toLocaleDateString()}` : ''}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-200">
+                                {adm.role === 'admin' ? 'Admin' : 'Co-Admin'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRevokeAdmin(adm.email)}
+                                className="text-rose-600 hover:text-rose-800 hover:bg-rose-50 p-1.5 rounded-lg border border-rose-200 text-xs font-bold transition-all"
+                                title="Revoke permissions"
+                              >
+                                Revoke
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminManagementModal(false)}
+                    className="px-5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-200 hover:bg-slate-300 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
               </motion.div>
             </motion.div>
           )}

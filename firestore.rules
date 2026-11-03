@@ -3,6 +3,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function isSuperAdmin() {
       return request.auth != null && (
+        request.auth.token.email.lower() == 'brossj15@gmail.com' ||
+        request.auth.token.email.lower() == 'ogunbadekehinde19@gmail.com' ||
         request.auth.token.email.lower() == 'ogungbadekehinde19@gmail.com' ||
         request.auth.token.email.lower() == 'brossj50@gmail.com'
       );
@@ -10,7 +12,8 @@ service cloud.firestore {
 
     match /staff/{document} {
       // Super admins can read and write all staff records
-      // Regular staff members can only read, create, and update their own document
+      // Co-admins and regular users can create records
+      // Regular staff members can only read and update their own document
       allow read: if request.auth != null && (
         isSuperAdmin() ||
         (resource.data.email != null && resource.data.email.lower() == request.auth.token.email.lower()) ||
@@ -22,18 +25,29 @@ service cloud.firestore {
         (resource.data.email != null && resource.data.email.lower() == request.auth.token.email.lower()) ||
         (resource.data.userId != null && resource.data.userId == request.auth.uid)
       );
-      allow delete: if request.auth != null;
+      allow delete: if request.auth != null && isSuperAdmin();
     }
+
+    match /admins/{document} {
+      allow read: if request.auth != null;
+      allow write: if isSuperAdmin();
+    }
+
     match /messages/{document} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && isSuperAdmin();
+      allow delete: if request.auth != null && isSuperAdmin();
     }
+
     match /news/{document} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow create, update, delete: if isSuperAdmin();
     }
+
     match /users/{userId} {
       allow read, write: if request.auth != null;
     }
   }
 }
+
